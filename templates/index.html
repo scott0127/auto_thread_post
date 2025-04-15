@@ -7,8 +7,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    
     <div class="container">
         <h1>Notes Application</h1>
+        <form method="POST" action="/publish">
+            <label for="user">選擇使用者:</label>
+            <select name="user" id="user">
+                <option value="user1">KB</option>
+                <option value="user2">阿淳</option>
+            </select>
+        </form>
         <textarea id="noteInput" placeholder="Write your notes here..."></textarea>
         <div class="buttons">
             <button id="publishButton">Publish to Threads</button>
