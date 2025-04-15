@@ -25,11 +25,13 @@
 
         <div class="saved-notes">
             <h2>Saved Notes (Last 10 Versions)</h2>
-            <ul id="notesList">
+            <div id="notesList" class="notes-container">
                 {% for note in notes %}
-                <li>{{ note }}</li>
+                <div class="note-card">
+                    <p>{{ note }}</p>
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
         </div>
     </div>
 
@@ -74,7 +76,6 @@
             });
         }
 
-        // 獲取最新的筆記版本並更新列表
         function fetchNotes() {
             fetch("/notes")
                 .then(response => response.json())
@@ -82,16 +83,25 @@
                     const notesList = document.getElementById('notesList');
                     notesList.innerHTML = ''; // 清空現有列表
                     data.notes.forEach(note => {
-                        const li = document.createElement('li');
-                        li.textContent = note;
-                        notesList.appendChild(li);
+                        // 創建卡片容器
+                        const card = document.createElement('div');
+                        card.className = 'note-card'; // 套用卡片樣式
+
+                        // 創建卡片內容，將換行符號替換為 <br>
+                        const paragraph = document.createElement('p');
+                        paragraph.innerHTML = note.replace(/\n/g, '<br>'); // 保留多行文字格式
+
+                        // 將內容加入卡片
+                        card.appendChild(paragraph);
+
+                        // 將卡片加入列表
+                        notesList.appendChild(card);
                     });
                 })
                 .catch(error => {
                     console.error('Error fetching notes:', error);
                 });
         }
-
         // 初始化時獲取最新的筆記版本
         fetchNotes();
     </script>

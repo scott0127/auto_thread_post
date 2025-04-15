@@ -75,17 +75,17 @@ def save_note_version(note):
     # 如果檔案存在，讀取現有版本
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as file:
-            notes = file.readlines()
+            notes = file.read().strip().split("\n\n")
 
     # 新增最新版本到列表
-    notes.insert(0, note + "\n")
+    notes.insert(0, note)
 
     # 保留最多 10 個版本
     notes = notes[:10]
 
-    # 將版本寫回檔案
+    # 將版本寫回檔案，使用雙換行符號分隔
     with open(file_path, "w", encoding="utf-8") as file:
-        file.writelines(notes)
+        file.write("\n\n".join(notes))
 
 def load_note_versions():
     """
@@ -94,7 +94,8 @@ def load_note_versions():
     file_path = "notes_versions.txt"
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as file:
-            return file.readlines()
+            notes = file.read().strip().split("\n\n")  # 使用雙換行符號分隔筆記
+            return notes
     return []
 
 @app.route("/", methods=["GET", "POST"])
