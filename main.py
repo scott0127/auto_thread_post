@@ -120,11 +120,19 @@ def get_notes():
 @app.route("/publish", methods=["POST"])
 def publish():
     text = request.form.get("note")
+    user = request.form.get("user")  # 接收選擇的使用者
     if text:
         # 保存筆記版本
         save_note_version(text)
 
-        access_token = os.getenv("THREADS_API_ACCESS_TOKEN")
+        # 根據選擇的使用者取得對應的 access token
+        if user == "user1":
+            access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER1")
+        elif user == "user2":
+            access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER2")
+        else:
+            return "無效的使用者選擇", 400
+
         if not access_token:
             return "請設定環境變數 THREADS_API_ACCESS_TOKEN", 400
 
@@ -133,6 +141,8 @@ def publish():
 
         publish_response = publish_thread(access_token, creation_id)
         return "Note published to Threads!"
+
+    return "請提供筆記內容", 400
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
