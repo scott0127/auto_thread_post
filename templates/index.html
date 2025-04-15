@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes and Publish to Threads</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Notes Application</h1>
+        <textarea id="noteInput" placeholder="Write your notes here..."></textarea>
+        <div class="buttons">
+            <button id="publishButton">Publish to Threads</button>
+        </div>
+        <div id="statusMessage"></div>
+
+        <div class="saved-notes">
+            <h2>Saved Notes (Last 10 Versions)</h2>
+            <ul id="notesList">
+                {% for note in notes %}
+                <li>{{ note }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let saveTimeout;
+
+        // 監聽文字框的輸入事件
+        document.getElementById('noteInput').addEventListener('input', function() {
+            const note = this.value;
+
+            // 防止頻繁保存，設定延遲保存
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                saveNoteToServer(note, 'Note auto-saved!');
+            }, 500); // 延遲 500 毫秒保存
+        });
+
+        // 發佈按鈕
+        document.getElementById('publishButton').addEventListener('click', function() {
+            const note = document.getElementById('noteInput').value;
+            saveNoteToServer(note, 'Note published to Threads!', true);
+        });
+
+        // 將筆記保存到伺服器
+        function saveNoteToServer(note, successMessage, publish = false) {
+            const url = publish ? "/publish" : "/";
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: `note=${encodeURIComponent(note)}`,
+            })
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('statusMessage').innerText = successMessage;
+                fetchNotes(); // 保存後立即更新筆記列表
+            })
+            .catch(error => {
+                document.getElementById('statusMessage').innerText = 'Error saving note!';
+                console.error('Error:', error);
+            });
+        }
+
+        // 獲取最新的筆記版本並更新列表
+        function fetchNotes() {
+            fetch("/notes")
+                .then(response => response.json())
+                .then(data => {
+                    const notesList = document.getElementById('notesList');
+                    notesList.innerHTML = ''; // 清空現有列表
+                    data.notes.forEach(note => {
+                        const li = document.createElement('li');
+                        li.textContent = note;
+                        notesList.appendChild(li);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching notes:', error);
+                });
+        }
+
+        // 初始化時獲取最新的筆記版本
+        fetchNotes();
+    </script>
+</body>
+</html>
