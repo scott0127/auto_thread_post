@@ -3,7 +3,9 @@ import os
 import urllib.parse
 import json
 from flask import Flask, render_template, request, redirect, url_for, jsonify
-
+# 載入 .env 檔案
+from dotenv import load_dotenv 
+load_dotenv()
 # 設定 API 主機
 HOST = "graph.threads.net"
 
@@ -127,15 +129,16 @@ def publish():
         save_note_version(text)
 
         # 根據選擇的使用者取得對應的 access token
+        
         if user == "user1":
             access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER1")
         elif user == "user2":
             access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER2")
         else:
-            return "無效的使用者選擇", 400
+            return "無效的使用者選擇", 401
 
         if not access_token:
-            return "請設定環境變數 THREADS_API_ACCESS_TOKEN", 400
+            return "請設定環境變數 THREADS_API_ACCESS_TOKEN", 402
 
         creation_response = create_thread(access_token, text)
         creation_id = creation_response
@@ -143,7 +146,7 @@ def publish():
         publish_response = publish_thread(access_token, creation_id)
         return "Note published to Threads!"
 
-    return "請提供筆記內容", 400
+    return "請提供筆記內容", 403
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
