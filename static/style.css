@@ -2,16 +2,23 @@ body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    display: flex; /* 使用 Flexbox */
+    justify-content: center; /* 水平置中 */
+    align-items: center; /* 垂直置中 */
+    min-height: 100vh; /* 設定最小視窗高度 */
 }
 
 .container {
-    max-width: 800px;
-    margin: auto;
+    max-width: 1200px; /* 最大寬度 */
+    width: 90%; /* 在小螢幕上縮小寬度 */
+    max-height: 90vh; /* 最大高度 */
+    overflow-y: auto; /* 如果內容超出高度，顯示滾動條 */
     background: white;
     padding: 20px;
     border-radius: 5px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center; /* 文字置中 */
 }
 
 h1 {
@@ -19,20 +26,27 @@ h1 {
     color: #333;
 }
 
-.text-area {
+form {
+    margin-bottom: 20px;
+}
+
+textarea {
     width: 100%;
-    height: 300px;
+    height: 150px;
+    max-height: 300px; /* 限制文字框的最大高度 */
     border: 1px solid #ccc;
     border-radius: 5px;
     padding: 10px;
     font-size: 16px;
-    resize: both; /* 允許水平和垂直調整大小 */
-    overflow: auto; /* 確保內容溢出時可以滾動 */
+    resize: vertical; /* 允許垂直調整大小 */
+    box-sizing: border-box;
 }
 
-.button {
-    display: inline-block;
-    margin: 10px 0;
+.buttons {
+    margin-top: 10px;
+}
+
+button {
     padding: 10px 20px;
     background-color: #28a745;
     color: white;
@@ -42,24 +56,21 @@ h1 {
     font-size: 16px;
 }
 
-.button:hover {
+button:hover {
     background-color: #218838;
 }
 
-.error {
-    color: red;
-    text-align: center;
+.saved-notes {
+    margin-top: 20px;
 }
 
-.success {
-    color: green;
-    text-align: center;
-}
 .notes-container {
     display: flex;
     flex-wrap: wrap;
     gap: 15px;
-    margin-top: 20px;
+    justify-content: center; /* 卡片水平置中 */
+    max-height: 70vh; /* 限制卡片容器的最大高度 */
+    overflow-y: auto; /* 如果卡片超出高度，顯示滾動條 */
 }
 
 .note-card {
@@ -68,12 +79,44 @@ h1 {
     border-radius: 8px;
     padding: 15px;
     width: calc(33.333% - 10px); /* 每行顯示三個卡片 */
+    max-width: 300px; /* 限制卡片的最大寬度 */
+    max-height: 200px; /* 限制卡片的最大高度 */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     word-wrap: break-word;
+    text-align: center; /* 卡片內文字置中 */
+    display: flex; /* 使用 Flexbox */
+    justify-content: center; /* 水平置中 */
+    align-items: center; /* 垂直置中 */
+    overflow: hidden; /* 隱藏超出內容 */
 }
 
 .note-card p {
     margin: 0;
     font-size: 14px;
     color: #333;
+    text-overflow: ellipsis; /* 如果文字過長，顯示省略號 */
+    overflow: hidden;
+    white-space: nowrap; /* 單行顯示文字 */
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .note-card {
+        width: calc(50% - 10px); /* 平板裝置每行顯示兩個卡片 */
+    }
+}
+
+@media (max-width: 480px) {
+    .note-card {
+        width: 100%; /* 手機裝置每行顯示一個卡片 */
+    }
+
+    textarea {
+        height: 120px; /* 手機上縮小文字框高度 */
+    }
+
+    button {
+        font-size: 14px; /* 手機上縮小按鈕文字大小 */
+        padding: 8px 16px; /* 手機上縮小按鈕大小 */
+    }
 }
