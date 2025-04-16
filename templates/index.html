@@ -17,7 +17,20 @@
                 <option value="user2">阿淳</option>
             </select>
             <br>
-            <textarea id="noteInput" name="note" placeholder="Write your notes here..."></textarea>
+            <textarea id="noteInput" name="note" placeholder="Write your notes here..." oninput="updateCharCount()"></textarea>
+            <p id="charCount">0/500</p>
+            <script>
+                function updateCharCount() {
+                    const noteInput = document.getElementById('noteInput');
+                    const charCount = document.getElementById('charCount');
+                    charCount.textContent = `${noteInput.value.length}/500`;
+                    if (noteInput.value.length > 500) {
+                        charCount.style.color = 'red';
+                    } else {
+                        charCount.style.color = 'black';
+                    }
+                }
+            </script>
             <br>
             <div class="buttons">
                 <button type="submit" id="publishButton">Publish to Threads</button>
