@@ -125,28 +125,33 @@ def publish():
     text = request.form.get("note")
     user = request.form.get("user")  # 接收選擇的使用者
     if text:
+        # 檢查字元數是否超過 500
+        if len(text) > 500:
+            return jsonify({"error": "文章字數超過 500 字元的限制，請縮短內容後再試。"}), 400
+
         # 保存筆記版本
         save_note_version(text)
 
         # 根據選擇的使用者取得對應的 access token
-        
         if user == "user1":
             access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER1")
         elif user == "user2":
             access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER2")
         else:
-            return "無效的使用者選擇", 401
+            return jsonify({"error": "無效的使用者選擇"}), 401
 
         if not access_token:
-            return "請設定環境變數 THREADS_API_ACCESS_TOKEN", 402
+            return jsonify({"error": "請設定環境變數 THREADS_API_ACCESS_TOKEN"}), 402
 
+        # 創建 Thread
         creation_response = create_thread(access_token, text)
         creation_id = creation_response
 
+        # 發佈 Thread
         publish_response = publish_thread(access_token, creation_id)
-        return "Note published to Threads!"
+        return jsonify({"message": "Note published to Threads!", "response": publish_response})
 
-    return "請提供筆記內容", 403
+    return jsonify({"error": "請提供筆記內容"}), 403
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
