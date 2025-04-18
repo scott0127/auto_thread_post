@@ -125,7 +125,7 @@ def split_note(note, max_length=500):
     將筆記拆分為多段，每段不超過 max_length 字元，並在每段前加上第一行作為日期標籤
     """
     lines = note.split("\n")
-    first_line = lines[0]  # 取得第一行作為日期標籤
+    first_line = lines[0]+"\n"+lines[1]  # 取得第一行作為日期標籤
     chunks = []
     current_chunk = ""
 
