@@ -120,18 +120,33 @@ def get_notes():
     notes = load_note_versions()
     return jsonify({"notes": notes})
 
+def split_note(note, max_length=500):
+    """
+    將筆記拆分為多段，每段不超過 max_length 字元，並在每段前加上第一行作為日期標籤
+    """
+    lines = note.split("\n")
+    first_line = lines[0]  # 取得第一行作為日期標籤
+    chunks = []
+    current_chunk = ""
+
+    for line in lines:
+        if len(current_chunk) + len(line) + 1 > max_length:  # +1 是為了考慮換行符號
+            chunks.append(current_chunk.strip())
+            current_chunk = ""
+        current_chunk += line + "\n"
+
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+
+    # 在每段前加上第一行（日期標籤），除了第一段
+    return [chunks[0]] + [f"{first_line}\n{chunk}" for chunk in chunks[1:]]
+
+
 @app.route("/publish", methods=["POST"])
 def publish():
     text = request.form.get("note")
     user = request.form.get("user")  # 接收選擇的使用者
     if text:
-        # 檢查字元數是否超過 500
-        if len(text) > 500:
-            return jsonify({"error": "文章字數超過 500 字元的限制，請縮短內容後再試。"}), 400
-
-        # 保存筆記版本
-        save_note_version(text)
-
         # 根據選擇的使用者取得對應的 access token
         if user == "user1":
             access_token = os.getenv("THREADS_API_ACCESS_TOKEN_USER1")
@@ -143,13 +158,22 @@ def publish():
         if not access_token:
             return jsonify({"error": "請設定環境變數 THREADS_API_ACCESS_TOKEN"}), 402
 
-        # 創建 Thread
-        creation_response = create_thread(access_token, text)
-        creation_id = creation_response
+        # 拆分筆記（如果超過 500 字）
+        chunks = split_note(text)
 
-        # 發佈 Thread
-        publish_response = publish_thread(access_token, creation_id)
-        return jsonify({"message": "Note published to Threads!", "response": publish_response})
+        # 保存每段筆記並發佈
+        for chunk in chunks:
+            # 保存筆記版本
+            save_note_version(chunk)
+
+            # 創建 Thread
+            creation_response = create_thread(access_token, chunk)
+            creation_id = creation_response
+
+            # 發佈 Thread
+            publish_response = publish_thread(access_token, creation_id)
+
+        return jsonify({"message": "Note published to Threads!", "chunks": chunks})
 
     return jsonify({"error": "請提供筆記內容"}), 403
 
