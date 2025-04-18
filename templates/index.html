@@ -23,8 +23,14 @@
                 function updateCharCount() {
                     const noteInput = document.getElementById('noteInput');
                     const charCount = document.getElementById('charCount');
-                    charCount.textContent = `${noteInput.value.length}/500`;
-                    if (noteInput.value.length > 500) {
+            
+                    // 計算字數，包含換行符號
+                    const text = noteInput.value;
+                    const length = text.length + (text.match(/\n/g) || []).length;
+            
+                    charCount.textContent = `${length}/500`;
+            
+                    if (length > 500) {
                         charCount.style.color = 'red';
                     } else {
                         charCount.style.color = 'black';
