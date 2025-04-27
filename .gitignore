@@ -1,1 +1,21 @@
-# .env
+# 環境變數檔案
+.env
+.env.local
+.env.development
+.env.production
+
+# Python 相關
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# 系統檔案
+.DS_Store
+Thumbs.db
