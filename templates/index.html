@@ -21,6 +21,13 @@
         <form method="POST" action="/publish" id="noteForm">
           <div class="form-group">
             <div class="textarea-wrapper">
+              <div class="input-controls">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="aiCompletionToggle" checked />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">AI 補全</span>
+                </label>
+              </div>
               <textarea
                 id="noteInput"
                 name="note"
@@ -82,6 +89,40 @@
     </div>
 
     <script>
+      // 在 AI 補全相關變數附近添加
+      let aiCompletionEnabled = true; // 默認啟用 AI 補全
+
+      // 在 script 標籤末尾添加
+      // 監聽 AI 補全開關
+      document
+        .getElementById("aiCompletionToggle")
+        .addEventListener("change", function () {
+          aiCompletionEnabled = this.checked;
+
+          if (!aiCompletionEnabled) {
+            // 關閉時清除當前建議
+            clearAISuggestion();
+          }
+
+          // 保存設置到本地存儲
+          localStorage.setItem("aiCompletionEnabled", aiCompletionEnabled);
+
+          // 顯示狀態訊息
+          showStatusMessage(
+            `AI 補全功能已${aiCompletionEnabled ? "啟用" : "停用"}`,
+            "info"
+          );
+        });
+
+      // 載入時檢查本地存儲中的設置
+      document.addEventListener("DOMContentLoaded", function () {
+        const savedSetting = localStorage.getItem("aiCompletionEnabled");
+        if (savedSetting !== null) {
+          aiCompletionEnabled = savedSetting === "true";
+          document.getElementById("aiCompletionToggle").checked =
+            aiCompletionEnabled;
+        }
+      });
       let saveTimeout;
 
       // 監聽文字框的輸入事件
@@ -96,7 +137,48 @@
             saveNoteToServer(note);
           }, 800); // 延遲 800 毫秒保存
         });
+      // 監聽輸入事件，觸發 AI 補全
+      document
+        .getElementById("noteInput")
+        .addEventListener("input", function () {
+          const note = this.value;
 
+          // 更新字數計數
+          updateCharCount();
+
+          // 只在 AI 補全啟用時處理
+          if (aiCompletionEnabled) {
+            handleAICompletion(this);
+          }
+
+          // 防止頻繁保存，設定延遲保存
+          clearTimeout(saveTimeout);
+          saveTimeout = setTimeout(() => {
+            saveNoteToServer(note);
+          }, 800); // 延遲 800 毫秒保存
+        });
+      document
+        .getElementById("aiCompletionToggle")
+        .addEventListener("change", function () {
+          aiCompletionEnabled = this.checked;
+
+          if (!aiCompletionEnabled) {
+            // 關閉時清除當前建議
+            clearAISuggestion();
+            // 取消任何待處理的請求
+            clearTimeout(aiSuggestionTimeout);
+            isRequestPending = false;
+          }
+
+          // 保存設置到本地存儲
+          localStorage.setItem("aiCompletionEnabled", aiCompletionEnabled);
+
+          // 顯示狀態訊息
+          showStatusMessage(
+            `AI 補全功能已${aiCompletionEnabled ? "啟用" : "停用"}`,
+            "info"
+          );
+        });
       // 發佈按鈕
       document
         .getElementById("publishButton")
@@ -319,18 +401,28 @@
 
       // 新增處理 AI 補全的函數
       function handleAICompletion(textarea) {
+        // 如果 AI 補全功能被禁用，直接返回
+        if (!aiCompletionEnabled) {
+          clearAISuggestion();
+          return;
+        }
         // 獲取當前文本和光標位置
         const text = textarea.value;
         const cursorPos = textarea.selectionStart;
 
-        // 如果光標不在文本末尾，不提供建議
-        if (cursorPos !== text.length) {
-          clearAISuggestion();
-          return;
-        }
+        // 如果光標不在文本末尾，不提供建議 - 移除這個限制
+        // if (cursorPos !== text.length) {
+        //    clearAISuggestion();
+        //    return;
+        // }
 
-        // 如果文本太短，不提供建議
-        if (text.trim().length < 2) {
+        // 獲取光標所在行的文本
+        const beforeCursor = text.substring(0, cursorPos);
+        const lines = beforeCursor.split("\n");
+        const currentLine = lines[lines.length - 1];
+
+        // 如果當前行太短，不提供建議
+        if (currentLine.trim().length < 2) {
           clearAISuggestion();
           return;
         }
@@ -340,12 +432,11 @@
         aiSuggestionTimeout = setTimeout(() => {
           // 避免重複請求
           if (!isRequestPending) {
-            requestAICompletion(text);
+            requestAICompletion(currentLine); // 只傳遞當前行的文本
           }
         }, debounceDelay);
       }
 
-      // 請求 AI 補全
       function requestAICompletion(text) {
         isRequestPending = true;
 
@@ -365,7 +456,8 @@
             isRequestPending = false;
 
             if (data.completion) {
-              // 顯示 AI 建議
+              // API 現在只返回補全部分，不需要再額外處理
+              currentAISuggestion = data.completion;
               showAISuggestion(text, data.completion);
             } else {
               clearAISuggestion();
@@ -377,14 +469,15 @@
             clearAISuggestion();
           });
       }
-
       // 顯示 AI 正在輸入的指示器
       function showAITypingIndicator() {
-        const aiSuggestionElement = document.getElementById("aiSuggestion");
-        const noteInput = document.getElementById("noteInput");
-        const text = noteInput.value;
-
-        aiSuggestionElement.innerHTML = escapeHtml(text);
+        // 不要做任何顯示，或顯示簡單的加載指示器
+        const hintElem = document.getElementById("floating-hint");
+        if (hintElem) {
+          hintElem.innerHTML =
+            '<span class="typing-indicator"><span>.</span><span>.</span><span>.</span></span>';
+          hintElem.style.color = "#aaaaaa";
+        }
       }
 
       // 徹底重寫的顯示建議方法
@@ -395,22 +488,30 @@
         const noteInput = document.getElementById("noteInput");
         const textarea = noteInput;
         const text = textarea.value;
+        const cursorPos = textarea.selectionEnd;
 
         // 如果沒有有效的補全，清除建議
-        if (!completion || completion.length <= originalText.length) {
+        if (!completion) {
           clearAISuggestion();
           return;
         }
 
-        // 提取建議部分
-        const suggestion = completion.substring(originalText.length);
-
-        // 獲取光標位置信息
-        const cursorPos = textarea.selectionEnd;
-
         // 儲存當前建議
-        currentAISuggestion = suggestion;
+        currentAISuggestion = completion;
         suggestionVisible = true;
+
+        // 獲取光標所在行的文本
+        const beforeCursor = text.substring(0, cursorPos);
+        const lines = beforeCursor.split("\n");
+        const currentLine = lines[lines.length - 1];
+
+        // 獲取當前行的完整文本（包括光標後面的部分）
+        const allLines = text.split("\n");
+        const currentLineIndex = lines.length - 1;
+        const fullCurrentLine = allLines[currentLineIndex] || "";
+
+        // 獲取光標後面的文本
+        const afterCursor = fullCurrentLine.substring(currentLine.length);
 
         // 獲取或創建浮動提示元素
         let hintElem = document.getElementById("floating-hint");
@@ -443,19 +544,11 @@
         temp.style.fontSize = getComputedStyle(textarea).fontSize;
         temp.style.lineHeight = getComputedStyle(textarea).lineHeight;
 
-        // 獲取光標前的文本
-        const beforeCursor = text.substring(0, cursorPos);
-        temp.textContent = beforeCursor;
-
+        // 只使用當前行之前的文字來計算位置
+        temp.textContent = currentLine;
         document.body.appendChild(temp);
 
-        // 計算光標位置
-        const lastLine = beforeCursor.split("\n").pop();
-
-        // 獲取元素的偏移信息
-        const textWidth = getTextWidth(lastLine, textarea);
-
-        // 清理臨時元素
+        const textWidth = getTextWidth(currentLine, textarea);
         document.body.removeChild(temp);
 
         // 根據光標位置設置提示元素位置
@@ -463,21 +556,22 @@
         const paddingTop = parseInt(getComputedStyle(textarea).paddingTop);
         const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
 
-        // 計算行數
-        const lines = beforeCursor.split("\n").length;
-
-        // 設置提示元素位置
+        // 設置提示元素位置，考慮到當前行的位置
         hintElem.style.left =
           rect.left + textWidth + paddingLeft + window.scrollX + "px";
         hintElem.style.top =
           rect.top +
-          (lines - 1) * lineHeight +
+          (lines.length - 1) * lineHeight +
           paddingTop +
           window.scrollY +
           "px";
 
-        // 設置提示內容
-        hintElem.innerHTML = formatWordSuggestion(suggestion);
+        // 設置提示內容，移除原文本並插入光標位置後的文本
+        hintElem.innerHTML =
+          formatWordSuggestion(completion) +
+          (afterCursor
+            ? `<span style="color: #000000;">${afterCursor}</span>`
+            : "");
         hintElem.style.color = "#aaaaaa";
       }
 
@@ -491,71 +585,76 @@
         suggestionVisible = false;
       }
       // 添加 AI 問答功能的腳本
-      document.getElementById('questionForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const questionInput = document.getElementById('questionInput');
-        const question = questionInput.value.trim();
-        
-        if (!question) return;
-        
-        // 顯示用戶問題
-        addMessage('user', question);
-        questionInput.value = '';
-        
-        // 顯示加載中
-        const loadingId = addMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>');
-        
-        // 發送問題到後端
-        fetch('/ask', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ question: question }),
-        })
-        .then(response => response.json())
-        .then(data => {
-          // 移除加載中訊息
-          removeMessage(loadingId);
-          
-          // 顯示 AI 回答
-          addMessage('assistant', data.answer);
-          
-          // 自動滾動到最新消息
-          scrollChatToBottom();
-        })
-        .catch(error => {
-          // 移除加載中訊息
-          removeMessage(loadingId);
-          
-          // 顯示錯誤訊息
-          addMessage('system', '抱歉，發生錯誤。請稍後再試。');
-          console.error('Error:', error);
+      document
+        .getElementById("questionForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const questionInput = document.getElementById("questionInput");
+          const question = questionInput.value.trim();
+
+          if (!question) return;
+
+          // 顯示用戶問題
+          addMessage("user", question);
+          questionInput.value = "";
+
+          // 顯示加載中
+          const loadingId = addMessage(
+            "assistant",
+            '<div class="typing-indicator"><span></span><span></span><span></span></div>'
+          );
+
+          // 發送問題到後端
+          fetch("/ask", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ question: question }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              // 移除加載中訊息
+              removeMessage(loadingId);
+
+              // 顯示 AI 回答
+              addMessage("assistant", data.answer);
+
+              // 自動滾動到最新消息
+              scrollChatToBottom();
+            })
+            .catch((error) => {
+              // 移除加載中訊息
+              removeMessage(loadingId);
+
+              // 顯示錯誤訊息
+              addMessage("system", "抱歉，發生錯誤。請稍後再試。");
+              console.error("Error:", error);
+            });
         });
-      });
-      
+
       // 添加聊天訊息
       function addMessage(type, content) {
-        const chatMessages = document.getElementById('chatMessages');
-        const messageDiv = document.createElement('div');
+        const chatMessages = document.getElementById("chatMessages");
+        const messageDiv = document.createElement("div");
         messageDiv.className = `message ${type}-message`;
-        messageDiv.id = 'msg-' + Date.now();
-        
-        const messageContent = document.createElement('div');
-        messageContent.className = 'message-content';
-        
+        messageDiv.id = "msg-" + Date.now();
+
+        const messageContent = document.createElement("div");
+        messageContent.className = "message-content";
+
         // 處理多行內容
-        const formattedContent = content.replace(/\n/g, '<br>');
+        const formattedContent = content.replace(/\n/g, "<br>");
         messageContent.innerHTML = `<p>${formattedContent}</p>`;
-        
+
         messageDiv.appendChild(messageContent);
         chatMessages.appendChild(messageDiv);
-        
+
         scrollChatToBottom();
         return messageDiv.id;
       }
-      
+
       // 移除訊息
       function removeMessage(messageId) {
         const message = document.getElementById(messageId);
@@ -563,10 +662,10 @@
           message.remove();
         }
       }
-      
+
       // 滾動到聊天框底部
       function scrollChatToBottom() {
-        const chatMessages = document.getElementById('chatMessages');
+        const chatMessages = document.getElementById("chatMessages");
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
       // 輔助函數 - 計算文字寬度
@@ -634,21 +733,34 @@
           }
         });
 
-      // 接受 AI 建議
+      // 修改 acceptAISuggestion 函數
       function acceptAISuggestion() {
         if (!suggestionVisible || !currentAISuggestion) return;
 
         const noteInput = document.getElementById("noteInput");
-        const originalText = noteInput.value;
+        const cursorPos = noteInput.selectionEnd;
+        const text = noteInput.value;
 
-        // 將建議添加到文本
-        noteInput.value = originalText + currentAISuggestion;
+        // 獲取光標所在行的信息
+        const beforeCursor = text.substring(0, cursorPos);
+        const afterCursor = text.substring(cursorPos);
+        const beforeLines = beforeCursor.split("\n");
+        const currentLineIndex = beforeLines.length - 1;
 
-        // 移動光標到文本末尾
-        noteInput.setSelectionRange(
-          noteInput.value.length,
-          noteInput.value.length
+        // 獲取當前完整的行
+        const allLines = text.split("\n");
+        const currentLine = beforeLines[currentLineIndex];
+        const afterLine = allLines[currentLineIndex].substring(
+          currentLine.length
         );
+
+        // 更新文本：保留光標前的所有內容，添加補全，自動換行，然後添加光標後的內容
+        noteInput.value =
+          beforeCursor + currentAISuggestion + "\n" + afterCursor;
+
+        // 移動光標到新行的開始位置
+        const newPos = cursorPos + currentAISuggestion.length + 1; // +1 是為了換行符
+        noteInput.setSelectionRange(newPos, newPos);
 
         // 清除建議
         clearAISuggestion();

@@ -44,15 +44,15 @@ def get_ai_completion(text):
         
         if not api_key:
             print("使用模擬補全，因為沒有找到 API 密鑰")
-            # 模擬英文單字補全
+            # 模擬英文單字補全 - 只返回補全部分而不包含原始文本
             if text.lower().startswith("a"):
-                return text + "bandon [v.] 放棄，遺棄；離開"
+                return "bandon [v.] 放棄，遺棄；離開"
             elif text.lower().startswith("c"):
-                return text + "omprehend [v.] 理解，領會；包含"
+                return "omprehend [v.] 理解，領會；包含"
             elif text.lower().startswith("e"):
-                return text + "fficient [adj.] 高效的，有能力的；[n.] 效率"
+                return "fficient [adj.] 高效的，有能力的；[n.] 效率"
             else:
-                return text + " - [n.] 名詞；[v.] 動詞；[adj.] 形容詞"
+                return " [n.] 測試，考試，檢驗；[v.] 測試，考驗，檢查"
             
         # 調用 OpenAI API，使用 GPT-4o-mini
         headers = {
@@ -61,42 +61,51 @@ def get_ai_completion(text):
         }
         
         data = {
-            "model": "gpt-4o-mini",  # 使用 GPT-4o-mini 模型
-            "messages": [
-                {
-                    "role": "system", 
-                    "content": """你是一個專業的英語單字助手，專門提供英文單字的中文翻譯與用法。
-                    
-                    當用戶輸入英文單字或字首時，請按照以下格式提供補全：
-                    1. 補全單字完整形式
-                    2. 標註詞性，使用 [n.], [v.], [adj.], [adv.] 等標準縮寫
-                    3. 列出2-4個常用中文翻譯，以逗號分隔
-                    4. 對於有多種詞性的單字，用分號分隔不同詞性的解釋
-                    
-                    例如：
-                    用戶輸入："ab"
-                    你的回應："abandon [v.] 放棄，遺棄，拋下，離開；[n.] 放縱，縱情"
-                    
-                    用戶輸入："ef"
-                    你的回應："efficient [adj.] 高效的，有能力的，能勝任的；[n.] 效率"
-                    
-                    請務必：
-                    - 直接補全用戶輸入，不要重複已輸入的部分
-                    - 不要包含任何解釋或其他文字
-                    - 翻譯要簡潔、準確、全面
-                    - 側重常用詞義和常見搭配
-                    - 只提供一個最相關的單字補全
-                    
-                    - 如果某個詞性的意思與其他詞性相似，可以不重複列出"""
-                },
-                {
-                    "role": "user", 
-                    "content": f"以下是我的英文筆記，請幫我補全並翻譯英文單字，且避免補全，例如已經有apple蘋果，就不要再出現apple蘋果：{text}"
-                }
-            ],
-            "temperature": 0.2,  # 降低溫度值以獲取更確定的回答
-            "max_tokens": 100
+    "model": "gpt-4o-mini",
+    "messages": [
+        {
+            "role": "system",
+            "content": """你是一個專業的英語單字、片語與句子翻譯助手，專門提供英文輸入的中文翻譯、詞性標註與自然語感補全。
+
+當用戶輸入英文單字、片語或完整句子時，請按照以下格式提供：
+
+1. 以用戶的完整輸入為單位，不拆分單字，不自行切分片語。
+2. 同一個單位請保持在同一行輸出，格式如下：
+   - 單字或片語原樣顯示（若需補全，請補全後顯示）。
+   - 接著詞性標註 [n.]、[v.]、[adj.]、[adv.]、[phr.]。
+   - 之後直接列出中文翻譯，每個翻譯用「，」分隔。
+   - 如果有多個詞性，用「；」分隔不同詞性的內容。
+3. 翻譯2-4個，保持自然、貼近中文常用說法。
+4. 若該單字或片語存在多個常見詞性，請**全部列出**，即使其中一個較少見也不可省略。
+5. 請遵循詞性優先順序排列：n. > v. > adj. > adv. > phr.。
+6. 若用戶輸入的單字或片語未完整，請**優先合理補全至最常見、最符合語境的英文單字或短語**後再進行翻譯。
+7. 嚴禁直接翻譯不完整或無明確意義的輸入；應補全後再翻譯。
+8. 完整句子一律標記為 [phr.]。
+
+範例：
+
+輸入："where is"  
+回應：where is [phr.] 在哪裡，位於哪裡，何處
+
+輸入："abandon"  
+回應：abandon [n.] 放縱，縱情；[v.] 放棄，遺棄，拋下，捨棄
+
+輸入："bou"  
+回應：bound [adj.] 必然的，受束縛的，準備前往的；[n.] 邊界，界限，限制
+
+請務必遵守以上規則，保持簡潔清楚，方便直接用於筆記。
+
+開始執行。
+
+"""
+        },
+        {
+            "role": "user",
+            "content": f"請根據以下英文內容進行補全並翻譯，並以單行格式輸出：\n\n{text}"
         }
+    ]
+}
+
         
         response = requests.post(
             "https://api.openai.com/v1/chat/completions", 
@@ -108,8 +117,11 @@ def get_ai_completion(text):
             result = response.json()
             completion = result["choices"][0]["message"]["content"].strip()
             
-            # 直接將補全添加到原始文本後
-            return text + completion
+            # 檢查是否包含原始文本，如果包含則移除
+            if completion.startswith(text):
+                completion = completion[len(text):].strip()
+            
+            return completion
         else:
             print(f"API 錯誤: {response.status_code}, {response.text}")
             return None
