@@ -19,6 +19,11 @@
       <div class="container">
         <h1><i class="fas fa-feather-alt"></i> 筆記應用</h1>
         <form method="POST" action="/publish" id="noteForm">
+          <label for="user">選擇使用者:</label>
+          <select name="user" id="user">
+            <option value="user1">KB</option>
+            <option value="user2">阿淳</option>
+          </select>
           <div class="form-group">
             <div class="textarea-wrapper">
               <div class="input-controls">
@@ -32,7 +37,6 @@
                 id="noteInput"
                 name="note"
                 placeholder="在此輸入英文單字，自動提供中文翻譯..."
-                oninput="updateCharCount()"
               ></textarea>
               <div id="aiSuggestion" class="ai-suggestion"></div>
             </div>
@@ -48,13 +52,9 @@
           </div>
         </form>
         <div id="statusMessage"></div>
-
-        <!-- 替換 saved-notes div -->
         <div class="saved-notes">
           <h2><i class="fas fa-history"></i> 已保存的筆記</h2>
-          <div id="notesList" class="notes-container">
-            <!-- 筆記卡片將在這裡動態生成 -->
-          </div>
+          <div id="notesList" class="notes-container"></div>
         </div>
       </div>
 
@@ -62,17 +62,96 @@
       <div class="ai-assistant-container">
         <div class="ai-assistant-header">
           <h2><i class="fas fa-robot"></i> AI 助手</h2>
-          <p class="assistant-subtitle">提問任何問題，獲得即時回答</p>
+          <div class="ai-toggle-group">
+            <button type="button" id="toggleQA" class="ai-toggle-btn active">
+              AI 問答
+            </button>
+            <button type="button" id="toggleImage" class="ai-toggle-btn">
+              AI 生圖片
+            </button>
+            <button type="button" id="toggleSubtitle" class="ai-toggle-btn">
+              AI 字幕
+            </button>
+          </div>
+          <p class="assistant-subtitle">提問任何問題，獲得即時回答或生成圖片</p>
         </div>
         <div class="chat-container">
-          <div id="chatMessages" class="chat-messages">
+          <div id="chatMessages" class="chat-messages" style="display: block">
             <div class="message system-message">
               <div class="message-content">
                 <p>您好！我是您的 AI 助手，有什麼我能幫您解答的嗎？</p>
               </div>
             </div>
           </div>
-          <form id="questionForm" class="question-form">
+          <div
+            id="videoSubtitleContainer"
+            style="display: none; margin-top: 30px"
+          >
+            <h3><i class="fas fa-film"></i> 影片自動產生繁體中文字幕</h3>
+            <input type="file" id="videoInput" accept=".srt,.vtt" />
+            <button id="generateSubtitleBtn" type="button">產生字幕</button>
+            <div id="subtitleResult" style="margin-top: 10px"></div>
+            <button
+              id="downloadSubtitleBtn"
+              type="button"
+              style="display: none"
+            >
+              下載字幕（SRT）
+            </button>
+          </div>
+          <div id="imageGenContainer" style="display: none">
+            <textarea
+              id="imagePrompt"
+              placeholder="請輸入圖像描述，例如：一隻穿太空衣的柴犬"
+              rows="3"
+            ></textarea>
+            <div class="style-controls">
+              <div class="style-selector-group">
+                <label for="imageStyle">選擇風格：</label>
+                <select id="imageStyle" class="style-selector">
+                  <option value="">無特定風格</option>
+                  <option value="吉卜力">吉卜力</option>
+                  <option value="水墨畫">水墨畫</option>
+                  <option value="浮世繪">浮世繪</option>
+                  <option value="賽博龐克">賽博龐克</option>
+                  <option value="蒸汽龐克">蒸汽龐克</option>
+                  <option value="超現實主義">超現實主義</option>
+                  <option value="立體主義">立體主義</option>
+                  <option value="新藝術">新藝術風格</option>
+                  <option value="低多邊形">低多邊形</option>
+                  <option value="像素藝術">像素藝術</option>
+                  <option value="科幻插畫">科幻插畫</option>
+                  <option value="哥特">哥特風格</option>
+                  <option value="custom">自定義風格...</option>
+                </select>
+              </div>
+              <div
+                id="customStyleWrapper"
+                style="display: none; margin-top: 8px"
+              >
+                <input
+                  type="text"
+                  id="customStyle"
+                  placeholder="輸入自定義風格名稱"
+                  class="custom-style-input"
+                />
+              </div>
+            </div>
+            <button id="generateImageBtn" type="button">
+              <i class="fas fa-magic"></i> 生成圖像
+            </button>
+            <div id="imageResult" style="margin-top: 10px"></div>
+            <div
+              id="promptUsed"
+              style="
+                margin-top: 8px;
+                font-size: 12px;
+                color: #666;
+                display: none;
+              "
+            ></div>
+          </div>
+          <form id="questionForm" class="question-form" style="display: block">
             <div class="question-input-area">
               <textarea
                 id="questionInput"
@@ -89,144 +168,238 @@
     </div>
 
     <script>
-      // 在 AI 補全相關變數附近添加
-      let aiCompletionEnabled = true; // 默認啟用 AI 補全
+      // ====== 全域變數 ======
+      let aiCompletionEnabled = true;
+      let aiSuggestionTimeout;
+      let currentAISuggestion = "";
+      let suggestionVisible = false;
+      let isRequestPending = false;
+      const debounceDelay = 500;
+      let saveTimeout;
 
-      // 在 script 標籤末尾添加
-      // 監聽 AI 補全開關
-      document
-        .getElementById("aiCompletionToggle")
-        .addEventListener("change", function () {
-          aiCompletionEnabled = this.checked;
-
-          if (!aiCompletionEnabled) {
-            // 關閉時清除當前建議
-            clearAISuggestion();
-          }
-
-          // 保存設置到本地存儲
-          localStorage.setItem("aiCompletionEnabled", aiCompletionEnabled);
-
-          // 顯示狀態訊息
-          showStatusMessage(
-            `AI 補全功能已${aiCompletionEnabled ? "啟用" : "停用"}`,
-            "info"
-          );
-        });
-
-      // 載入時檢查本地存儲中的設置
+      // ====== 初始化 ======
       document.addEventListener("DOMContentLoaded", function () {
+        // AI 補全開關狀態
         const savedSetting = localStorage.getItem("aiCompletionEnabled");
         if (savedSetting !== null) {
           aiCompletionEnabled = savedSetting === "true";
           document.getElementById("aiCompletionToggle").checked =
             aiCompletionEnabled;
         }
+        fetchNotes();
+        updateCharCount();
       });
-      let saveTimeout;
 
-      // 監聽文字框的輸入事件
-      document
-        .getElementById("noteInput")
-        .addEventListener("input", function () {
-          const note = this.value;
-
-          // 防止頻繁保存，設定延遲保存
-          clearTimeout(saveTimeout);
-          saveTimeout = setTimeout(() => {
-            saveNoteToServer(note);
-          }, 800); // 延遲 800 毫秒保存
-        });
-      // 監聽輸入事件，觸發 AI 補全
-      document
-        .getElementById("noteInput")
-        .addEventListener("input", function () {
-          const note = this.value;
-
-          // 更新字數計數
-          updateCharCount();
-
-          // 只在 AI 補全啟用時處理
-          if (aiCompletionEnabled) {
-            handleAICompletion(this);
-          }
-
-          // 防止頻繁保存，設定延遲保存
-          clearTimeout(saveTimeout);
-          saveTimeout = setTimeout(() => {
-            saveNoteToServer(note);
-          }, 800); // 延遲 800 毫秒保存
-        });
+      // ====== AI 補全開關 ======
       document
         .getElementById("aiCompletionToggle")
         .addEventListener("change", function () {
           aiCompletionEnabled = this.checked;
-
           if (!aiCompletionEnabled) {
-            // 關閉時清除當前建議
             clearAISuggestion();
-            // 取消任何待處理的請求
             clearTimeout(aiSuggestionTimeout);
             isRequestPending = false;
           }
-
-          // 保存設置到本地存儲
           localStorage.setItem("aiCompletionEnabled", aiCompletionEnabled);
-
-          // 顯示狀態訊息
           showStatusMessage(
             `AI 補全功能已${aiCompletionEnabled ? "啟用" : "停用"}`,
             "info"
           );
         });
-      // 發佈按鈕
+
+      // ====== 筆記輸入框事件 ======
       document
-        .getElementById("publishButton")
-        .addEventListener("click", function (e) {
-          e.preventDefault();
-          const note = document.getElementById("noteInput").value;
-          const user = document.getElementById("user").value;
-
-          if (!note.trim()) {
-            showStatusMessage("請輸入筆記內容", "error");
-            return;
-          }
-
-          publishNote(note, user);
+        .getElementById("noteInput")
+        .addEventListener("input", function () {
+          const note = this.value;
+          updateCharCount();
+          if (aiCompletionEnabled) handleAICompletion(this);
+          clearTimeout(saveTimeout);
+          saveTimeout = setTimeout(() => saveNoteToServer(note), 800);
         });
 
-      // 更新字元計數
-      function updateCharCount() {
-        const noteInput = document.getElementById("noteInput");
-        const charCount = document.getElementById("charCount");
+      // ====== AI 補全功能 ======
+      function handleAICompletion(textarea) {
+        if (!aiCompletionEnabled) {
+          clearAISuggestion();
+          return;
+        }
+        const text = textarea.value;
+        const cursorPos = textarea.selectionStart;
+        const beforeCursor = text.substring(0, cursorPos);
+        const lines = beforeCursor.split("\n");
+        const currentLine = lines[lines.length - 1];
+        if (currentLine.trim().length < 2) {
+          clearAISuggestion();
+          return;
+        }
+        clearTimeout(aiSuggestionTimeout);
+        aiSuggestionTimeout = setTimeout(() => {
+          if (!isRequestPending) requestAICompletion(currentLine);
+        }, debounceDelay);
+      }
 
-        const text = noteInput.value;
-        const length = text.length;
+      function requestAICompletion(text) {
+        isRequestPending = true;
+        showAITypingIndicator();
+        fetch("/ai-complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            isRequestPending = false;
+            if (data.completion) {
+              currentAISuggestion = data.completion;
+              showAISuggestion(text, data.completion);
+            } else {
+              clearAISuggestion();
+            }
+          })
+          .catch(() => {
+            isRequestPending = false;
+            clearAISuggestion();
+          });
+      }
 
-        charCount.textContent = `${length}/500`;
-
-        if (length > 500) {
-          charCount.style.color = "#e74c3c";
-        } else {
-          charCount.style.color = "#7f8c8d";
+      function showAITypingIndicator() {
+        const hintElem = document.getElementById("floating-hint");
+        if (hintElem) {
+          hintElem.innerHTML =
+            '<span class="typing-indicator"><span>.</span><span>.</span><span>.</span></span>';
+          hintElem.style.color = "#aaaaaa";
         }
       }
 
-      // 將筆記保存到伺服器
+      function showAISuggestion(originalText, completion) {
+        const noteInput = document.getElementById("noteInput");
+        const textarea = noteInput;
+        const text = textarea.value;
+        const cursorPos = textarea.selectionEnd;
+        if (!completion) {
+          clearAISuggestion();
+          return;
+        }
+        currentAISuggestion = completion;
+        suggestionVisible = true;
+        const beforeCursor = text.substring(0, cursorPos);
+        const lines = beforeCursor.split("\n");
+        const currentLine = lines[lines.length - 1];
+        const allLines = text.split("\n");
+        const currentLineIndex = lines.length - 1;
+        const fullCurrentLine = allLines[currentLineIndex] || "";
+        const afterCursor = fullCurrentLine.substring(currentLine.length);
+        let hintElem = document.getElementById("floating-hint");
+        if (!hintElem) {
+          hintElem = document.createElement("div");
+          hintElem.id = "floating-hint";
+          hintElem.style.position = "absolute";
+          hintElem.style.zIndex = "1000";
+          hintElem.style.pointerEvents = "none";
+          hintElem.style.backgroundColor = "transparent";
+          hintElem.style.fontFamily = getComputedStyle(textarea).fontFamily;
+          hintElem.style.fontSize = getComputedStyle(textarea).fontSize;
+          hintElem.style.whiteSpace = "pre";
+          document.body.appendChild(hintElem);
+        }
+        const rect = textarea.getBoundingClientRect();
+        const temp = document.createElement("div");
+        temp.style.position = "absolute";
+        temp.style.visibility = "hidden";
+        temp.style.whiteSpace = "pre-wrap";
+        temp.style.wordWrap = "break-word";
+        temp.style.overflow = "hidden";
+        temp.style.width = textarea.clientWidth - 30 + "px";
+        temp.style.height = "auto";
+        temp.style.fontFamily = getComputedStyle(textarea).fontFamily;
+        temp.style.fontSize = getComputedStyle(textarea).fontSize;
+        temp.style.lineHeight = getComputedStyle(textarea).lineHeight;
+        temp.textContent = currentLine;
+        document.body.appendChild(temp);
+        const textWidth = getTextWidth(currentLine, textarea);
+        document.body.removeChild(temp);
+        const paddingLeft = parseInt(getComputedStyle(textarea).paddingLeft);
+        const paddingTop = parseInt(getComputedStyle(textarea).paddingTop);
+        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
+        hintElem.style.left =
+          rect.left + textWidth + paddingLeft + window.scrollX + "px";
+        hintElem.style.top =
+          rect.top +
+          (lines.length - 1) * lineHeight +
+          paddingTop +
+          window.scrollY +
+          "px";
+        hintElem.innerHTML =
+          formatWordSuggestion(completion) +
+          (afterCursor
+            ? `<span style="color: #000000;">${afterCursor}</span>`
+            : "");
+        hintElem.style.color = "#aaaaaa";
+      }
+
+      function clearAISuggestion() {
+        const hintElem = document.getElementById("floating-hint");
+        if (hintElem) hintElem.innerHTML = "";
+        currentAISuggestion = "";
+        suggestionVisible = false;
+      }
+
+      document
+        .getElementById("noteInput")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Tab" && suggestionVisible) {
+            e.preventDefault();
+            acceptAISuggestion();
+          } else if (e.key === "ArrowRight" && suggestionVisible) {
+            const cursorPos = this.selectionStart;
+            if (cursorPos === this.value.length) {
+              e.preventDefault();
+              acceptAISuggestion();
+            }
+          } else if (e.key === "Escape" && suggestionVisible) {
+            e.preventDefault();
+            clearAISuggestion();
+          }
+        });
+
+      function acceptAISuggestion() {
+        if (!suggestionVisible || !currentAISuggestion) return;
+        const noteInput = document.getElementById("noteInput");
+        const cursorPos = noteInput.selectionEnd;
+        const text = noteInput.value;
+        const beforeCursor = text.substring(0, cursorPos);
+        const afterCursor = text.substring(cursorPos);
+        noteInput.value =
+          beforeCursor + currentAISuggestion + "\n" + afterCursor;
+        const newPos = cursorPos + currentAISuggestion.length + 1;
+        noteInput.setSelectionRange(newPos, newPos);
+        clearAISuggestion();
+        updateCharCount();
+        noteInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      // ====== 筆記自動保存與發佈 ======
+      function updateCharCount() {
+        const noteInput = document.getElementById("noteInput");
+        const charCount = document.getElementById("charCount");
+        const text = noteInput.value;
+        const length = text.length;
+        charCount.textContent = `${length}/500`;
+        charCount.style.color = length > 500 ? "#e74c3c" : "#7f8c8d";
+      }
+
       function saveNoteToServer(note) {
         if (!note.trim()) return;
-
         fetch("/", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: `note=${encodeURIComponent(note)}`,
         })
           .then((response) => response.text())
           .then(() => {
             showStatusMessage("筆記已自動保存", "success");
-            fetchNotes(); // 保存後立即更新筆記列表
+            fetchNotes();
           })
           .catch((error) => {
             showStatusMessage("保存筆記時發生錯誤", "error");
@@ -234,13 +407,25 @@
           });
       }
 
-      // 發布筆記到 Threads
+      document
+        .getElementById("publishButton")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
+          const note = document.getElementById("noteInput").value;
+          const user = document.getElementById("user")
+            ? document.getElementById("user").value
+            : "";
+          if (!note.trim()) {
+            showStatusMessage("請輸入筆記內容", "error");
+            return;
+          }
+          publishNote(note, user);
+        });
+
       function publishNote(note, user) {
         fetch("/publish", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: `note=${encodeURIComponent(note)}&user=${user}`,
         })
           .then((response) => response.json())
@@ -258,111 +443,72 @@
           });
       }
 
-      // 顯示狀態訊息
       function showStatusMessage(message, type) {
         const statusMessage = document.getElementById("statusMessage");
         statusMessage.textContent = message;
         statusMessage.className = type;
         statusMessage.classList.add("show");
-
         setTimeout(() => {
           statusMessage.classList.remove("show");
         }, 3000);
       }
 
-      // 在 script 標籤中替換 fetchNotes 函數
-
-      // 讀取筆記列表
       function fetchNotes() {
         fetch("/notes")
           .then((response) => response.json())
           .then((data) => {
             const notesList = document.getElementById("notesList");
-            notesList.innerHTML = ""; // 清空現有列表
-
+            notesList.innerHTML = "";
             if (data.notes.length === 0) {
               notesList.innerHTML =
                 '<div class="no-notes"><i class="fas fa-sticky-note"></i> 還沒有保存的筆記</div>';
               return;
             }
-
-            // 根據時間分類筆記
-            const notesGroups = {};
             const today = new Date();
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
-
             const todayStr = formatDate(today);
             const yesterdayStr = formatDate(yesterday);
-
             data.notes.forEach((note, index) => {
-              // 建立卡片容器
               const card = document.createElement("div");
               card.className = "note-card";
-
-              // 拆分內容，找出第一行作為日期標題
               const lines = note.split("\n");
               const firstLine = lines[0];
               let dateStr = "未知日期";
               let timeStr = "";
               let content = note;
-
-              // 解析日期和時間
               if (
                 firstLine &&
                 firstLine.match(/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/)
               ) {
                 dateStr = firstLine;
-
-                // 檢查是否有時間資訊
                 const timeParts = dateStr.match(/\d{1,2}:\d{1,2}/);
-                if (timeParts) {
-                  timeStr = timeParts[0];
-                }
-
+                if (timeParts) timeStr = timeParts[0];
                 content = lines.slice(1).join("\n");
               }
-
-              // 添加版本標籤
               const versionSpan = document.createElement("span");
               versionSpan.className = "note-version";
               versionSpan.textContent = `#${index + 1}`;
               card.appendChild(versionSpan);
-
-              // 添加日期標題
               const dateSpan = document.createElement("div");
               dateSpan.className = "note-date";
-
-              // 確定日期顯示文字
               let dateDisplay = dateStr;
-              if (dateStr.includes(todayStr)) {
-                dateDisplay = "今天";
-              } else if (dateStr.includes(yesterdayStr)) {
-                dateDisplay = "昨天";
-              }
-
+              if (dateStr.includes(todayStr)) dateDisplay = "今天";
+              else if (dateStr.includes(yesterdayStr)) dateDisplay = "昨天";
               if (timeStr) {
                 dateSpan.innerHTML = `${dateDisplay} <span class="note-time">${timeStr}</span>`;
               } else {
                 dateSpan.textContent = dateDisplay;
               }
               card.appendChild(dateSpan);
-
-              // 添加筆記內容
               const paragraph = document.createElement("p");
               paragraph.innerHTML = content.replace(/\n/g, "<br>");
               card.appendChild(paragraph);
-
-              // 添加卡片頁腳 (可選)
               const footer = document.createElement("div");
               footer.className = "note-card-footer";
-
               const charCount = content.length;
               footer.textContent = `${charCount} 個字元`;
-
               card.appendChild(footer);
-
-              // 將卡片加入列表
               notesList.appendChild(card);
             });
           })
@@ -371,304 +517,143 @@
             showStatusMessage("讀取筆記失敗", "error");
           });
       }
-      // 在現有 script 標籤內部，fetchNotes() 函數後面添加以下代碼
 
-      // AI 補全相關變數
-      let aiSuggestionTimeout;
-      let currentAISuggestion = "";
-      let suggestionVisible = false;
-      let isRequestPending = false;
-      const debounceDelay = 500; // 等待用戶停止輸入 500ms 后才發送請求
+      // 切換 AI 問答/AI 生圖片/AI 字幕
+      document.getElementById("toggleQA").onclick = function () {
+        document.getElementById("chatMessages").style.display = "block";
+        document.getElementById("questionForm").style.display = "block";
+        document.getElementById("imageGenContainer").style.display = "none";
+        document.getElementById("videoSubtitleContainer").style.display =
+          "none";
+        this.classList.add("active");
+        document.getElementById("toggleImage").classList.remove("active");
+        document.getElementById("toggleSubtitle").classList.remove("active");
+      };
+      document.getElementById("toggleImage").onclick = function () {
+        document.getElementById("chatMessages").style.display = "none";
+        document.getElementById("questionForm").style.display = "none";
+        document.getElementById("imageGenContainer").style.display = "block";
+        document.getElementById("videoSubtitleContainer").style.display =
+          "none";
+        this.classList.add("active");
+        document.getElementById("toggleQA").classList.remove("active");
+        document.getElementById("toggleSubtitle").classList.remove("active");
+      };
+      document.getElementById("toggleSubtitle").onclick = function () {
+        document.getElementById("chatMessages").style.display = "none";
+        document.getElementById("questionForm").style.display = "none";
+        document.getElementById("imageGenContainer").style.display = "none";
+        document.getElementById("videoSubtitleContainer").style.display =
+          "block";
+        this.classList.add("active");
+        document.getElementById("toggleQA").classList.remove("active");
+        document.getElementById("toggleImage").classList.remove("active");
+      };
 
-      // 監聽輸入事件，觸發 AI 補全
+      // ====== AI 生圖片功能 ======
       document
-        .getElementById("noteInput")
-        .addEventListener("input", function () {
-          const note = this.value;
-
-          // 更新字數計數
-          updateCharCount();
-
-          // 處理 AI 補全
-          handleAICompletion(this);
-
-          // 防止頻繁保存，設定延遲保存
-          clearTimeout(saveTimeout);
-          saveTimeout = setTimeout(() => {
-            saveNoteToServer(note);
-          }, 800); // 延遲 800 毫秒保存
+        .getElementById("imageStyle")
+        .addEventListener("change", function () {
+          document.getElementById("customStyleWrapper").style.display =
+            this.value === "custom" ? "block" : "none";
         });
 
-      // 新增處理 AI 補全的函數
-      function handleAICompletion(textarea) {
-        // 如果 AI 補全功能被禁用，直接返回
-        if (!aiCompletionEnabled) {
-          clearAISuggestion();
+      document.getElementById("generateImageBtn").onclick = function () {
+        const prompt = document.getElementById("imagePrompt").value.trim();
+        if (!prompt) {
+          document.getElementById("imageResult").innerText = "請輸入圖像描述！";
           return;
         }
-        // 獲取當前文本和光標位置
-        const text = textarea.value;
-        const cursorPos = textarea.selectionStart;
-
-        // 如果光標不在文本末尾，不提供建議 - 移除這個限制
-        // if (cursorPos !== text.length) {
-        //    clearAISuggestion();
-        //    return;
-        // }
-
-        // 獲取光標所在行的文本
-        const beforeCursor = text.substring(0, cursorPos);
-        const lines = beforeCursor.split("\n");
-        const currentLine = lines[lines.length - 1];
-
-        // 如果當前行太短，不提供建議
-        if (currentLine.trim().length < 2) {
-          clearAISuggestion();
-          return;
-        }
-
-        // 防抖動，避免頻繁請求
-        clearTimeout(aiSuggestionTimeout);
-        aiSuggestionTimeout = setTimeout(() => {
-          // 避免重複請求
-          if (!isRequestPending) {
-            requestAICompletion(currentLine); // 只傳遞當前行的文本
-          }
-        }, debounceDelay);
-      }
-
-      function requestAICompletion(text) {
-        isRequestPending = true;
-
-        // 顯示等待提示
-        showAITypingIndicator();
-
-        // 發送請求到後端 AI API
-        fetch("/ai-complete", {
+        let style = document.getElementById("imageStyle").value;
+        if (style === "custom")
+          style = document.getElementById("customStyle").value.trim();
+        document.getElementById("imageResult").innerHTML =
+          '<div class="loading-indicator"><span></span><span></span><span></span></div><p>AI 正在創作中，請稍候...</p>';
+        document.getElementById("promptUsed").style.display = "none";
+        fetch("/generate-image", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ text: text }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: prompt, style: style }),
         })
-          .then((response) => response.json())
+          .then((res) => res.json())
           .then((data) => {
-            isRequestPending = false;
-
-            if (data.completion) {
-              // API 現在只返回補全部分，不需要再額外處理
-              currentAISuggestion = data.completion;
-              showAISuggestion(text, data.completion);
+            if (data.image_url) {
+              document.getElementById(
+                "imageResult"
+              ).innerHTML = `<img src="${data.image_url}" alt="AI 生成圖像" style="max-width:100%;border-radius:8px;">`;
+              if (data.prompt_used) {
+                document.getElementById(
+                  "promptUsed"
+                ).textContent = `提示詞：${data.prompt_used}`;
+                document.getElementById("promptUsed").style.display = "block";
+              }
             } else {
-              clearAISuggestion();
+              document.getElementById("imageResult").innerText =
+                data.error || "生成失敗";
             }
           })
-          .catch((error) => {
-            console.error("AI 補全請求錯誤:", error);
-            isRequestPending = false;
-            clearAISuggestion();
+          .catch((err) => {
+            document.getElementById("imageResult").innerText =
+              "發生錯誤：" + err;
           });
-      }
-      // 顯示 AI 正在輸入的指示器
-      function showAITypingIndicator() {
-        // 不要做任何顯示，或顯示簡單的加載指示器
-        const hintElem = document.getElementById("floating-hint");
-        if (hintElem) {
-          hintElem.innerHTML =
-            '<span class="typing-indicator"><span>.</span><span>.</span><span>.</span></span>';
-          hintElem.style.color = "#aaaaaa";
-        }
-      }
+      };
 
-      // 徹底重寫的顯示建議方法
-
-      // 顯示 AI 建議
-      function showAISuggestion(originalText, completion) {
-        // 獲取 noteInput 相關信息
-        const noteInput = document.getElementById("noteInput");
-        const textarea = noteInput;
-        const text = textarea.value;
-        const cursorPos = textarea.selectionEnd;
-
-        // 如果沒有有效的補全，清除建議
-        if (!completion) {
-          clearAISuggestion();
-          return;
-        }
-
-        // 儲存當前建議
-        currentAISuggestion = completion;
-        suggestionVisible = true;
-
-        // 獲取光標所在行的文本
-        const beforeCursor = text.substring(0, cursorPos);
-        const lines = beforeCursor.split("\n");
-        const currentLine = lines[lines.length - 1];
-
-        // 獲取當前行的完整文本（包括光標後面的部分）
-        const allLines = text.split("\n");
-        const currentLineIndex = lines.length - 1;
-        const fullCurrentLine = allLines[currentLineIndex] || "";
-
-        // 獲取光標後面的文本
-        const afterCursor = fullCurrentLine.substring(currentLine.length);
-
-        // 獲取或創建浮動提示元素
-        let hintElem = document.getElementById("floating-hint");
-        if (!hintElem) {
-          hintElem = document.createElement("div");
-          hintElem.id = "floating-hint";
-          hintElem.style.position = "absolute";
-          hintElem.style.zIndex = "1000";
-          hintElem.style.pointerEvents = "none";
-          hintElem.style.backgroundColor = "transparent";
-          hintElem.style.fontFamily = getComputedStyle(textarea).fontFamily;
-          hintElem.style.fontSize = getComputedStyle(textarea).fontSize;
-          hintElem.style.whiteSpace = "pre";
-          document.body.appendChild(hintElem);
-        }
-
-        // 獲取 textarea 的位置
-        const rect = textarea.getBoundingClientRect();
-
-        // 創建一個臨時的隱藏元素來計算確切位置
-        const temp = document.createElement("div");
-        temp.style.position = "absolute";
-        temp.style.visibility = "hidden";
-        temp.style.whiteSpace = "pre-wrap";
-        temp.style.wordWrap = "break-word";
-        temp.style.overflow = "hidden";
-        temp.style.width = textarea.clientWidth - 30 + "px"; // 減去 padding
-        temp.style.height = "auto";
-        temp.style.fontFamily = getComputedStyle(textarea).fontFamily;
-        temp.style.fontSize = getComputedStyle(textarea).fontSize;
-        temp.style.lineHeight = getComputedStyle(textarea).lineHeight;
-
-        // 只使用當前行之前的文字來計算位置
-        temp.textContent = currentLine;
-        document.body.appendChild(temp);
-
-        const textWidth = getTextWidth(currentLine, textarea);
-        document.body.removeChild(temp);
-
-        // 根據光標位置設置提示元素位置
-        const paddingLeft = parseInt(getComputedStyle(textarea).paddingLeft);
-        const paddingTop = parseInt(getComputedStyle(textarea).paddingTop);
-        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
-
-        // 設置提示元素位置，考慮到當前行的位置
-        hintElem.style.left =
-          rect.left + textWidth + paddingLeft + window.scrollX + "px";
-        hintElem.style.top =
-          rect.top +
-          (lines.length - 1) * lineHeight +
-          paddingTop +
-          window.scrollY +
-          "px";
-
-        // 設置提示內容，移除原文本並插入光標位置後的文本
-        hintElem.innerHTML =
-          formatWordSuggestion(completion) +
-          (afterCursor
-            ? `<span style="color: #000000;">${afterCursor}</span>`
-            : "");
-        hintElem.style.color = "#aaaaaa";
-      }
-
-      // 清除 AI 建議
-      function clearAISuggestion() {
-        const hintElem = document.getElementById("floating-hint");
-        if (hintElem) {
-          hintElem.innerHTML = "";
-        }
-        currentAISuggestion = "";
-        suggestionVisible = false;
-      }
-      // 添加 AI 問答功能的腳本
+      // ====== AI 問答功能 ======
       document
         .getElementById("questionForm")
         .addEventListener("submit", function (e) {
           e.preventDefault();
-
           const questionInput = document.getElementById("questionInput");
           const question = questionInput.value.trim();
-
           if (!question) return;
-
-          // 顯示用戶問題
           addMessage("user", question);
           questionInput.value = "";
-
-          // 顯示加載中
           const loadingId = addMessage(
             "assistant",
-            '<div class="typing-indicator"><span></span><span></span><span></span></div>'
+            '<div class="typing-indicator"><span></span><span>.</span><span>.</span></div>'
           );
-
-          // 發送問題到後端
           fetch("/ask", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: question }),
           })
             .then((response) => response.json())
             .then((data) => {
-              // 移除加載中訊息
               removeMessage(loadingId);
-
-              // 顯示 AI 回答
               addMessage("assistant", data.answer);
-
-              // 自動滾動到最新消息
               scrollChatToBottom();
             })
-            .catch((error) => {
-              // 移除加載中訊息
+            .catch(() => {
               removeMessage(loadingId);
-
-              // 顯示錯誤訊息
               addMessage("system", "抱歉，發生錯誤。請稍後再試。");
-              console.error("Error:", error);
             });
         });
 
-      // 添加聊天訊息
       function addMessage(type, content) {
         const chatMessages = document.getElementById("chatMessages");
         const messageDiv = document.createElement("div");
         messageDiv.className = `message ${type}-message`;
         messageDiv.id = "msg-" + Date.now();
-
         const messageContent = document.createElement("div");
         messageContent.className = "message-content";
-
-        // 處理多行內容
         const formattedContent = content.replace(/\n/g, "<br>");
         messageContent.innerHTML = `<p>${formattedContent}</p>`;
-
         messageDiv.appendChild(messageContent);
         chatMessages.appendChild(messageDiv);
-
         scrollChatToBottom();
         return messageDiv.id;
       }
 
-      // 移除訊息
       function removeMessage(messageId) {
         const message = document.getElementById(messageId);
-        if (message) {
-          message.remove();
-        }
+        if (message) message.remove();
       }
 
-      // 滾動到聊天框底部
       function scrollChatToBottom() {
         const chatMessages = document.getElementById("chatMessages");
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
-      // 輔助函數 - 計算文字寬度
+
       function getTextWidth(text, element) {
         const canvas =
           getTextWidth.canvas ||
@@ -678,24 +663,6 @@
         const metrics = context.measureText(text);
         return metrics.width;
       }
-
-      // 添加新的 CSS
-      const style = document.createElement("style");
-      style.textContent = `
-        #floating-hint {
-          position: absolute;
-          pointer-events: none;
-          z-index: 1000;
-        }
-        #floating-hint .word-type {
-          color: #3498db;
-          font-weight: 600;
-        }
-        #floating-hint .word-meaning {
-          color: #95a5a6;
-        }
-      `;
-      document.head.appendChild(style);
 
       // 處理 HTML 特殊字元
       function escapeHtml(text) {
@@ -708,70 +675,6 @@
           .replace(/\n/g, "<br>");
       }
 
-      // 處理鍵盤事件
-      document
-        .getElementById("noteInput")
-        .addEventListener("keydown", function (e) {
-          // 如果有顯示 AI 建議且按下 Tab 鍵
-          if (e.key === "Tab" && suggestionVisible) {
-            e.preventDefault();
-            // 接受 AI 建議
-            acceptAISuggestion();
-          }
-          // 按下右方向鍵到文本末尾也可以接受建議
-          else if (e.key === "ArrowRight" && suggestionVisible) {
-            const cursorPos = this.selectionStart;
-            if (cursorPos === this.value.length) {
-              e.preventDefault();
-              acceptAISuggestion();
-            }
-          }
-          // 按下 Escape 鍵取消建議
-          else if (e.key === "Escape" && suggestionVisible) {
-            e.preventDefault();
-            clearAISuggestion();
-          }
-        });
-
-      // 修改 acceptAISuggestion 函數
-      function acceptAISuggestion() {
-        if (!suggestionVisible || !currentAISuggestion) return;
-
-        const noteInput = document.getElementById("noteInput");
-        const cursorPos = noteInput.selectionEnd;
-        const text = noteInput.value;
-
-        // 獲取光標所在行的信息
-        const beforeCursor = text.substring(0, cursorPos);
-        const afterCursor = text.substring(cursorPos);
-        const beforeLines = beforeCursor.split("\n");
-        const currentLineIndex = beforeLines.length - 1;
-
-        // 獲取當前完整的行
-        const allLines = text.split("\n");
-        const currentLine = beforeLines[currentLineIndex];
-        const afterLine = allLines[currentLineIndex].substring(
-          currentLine.length
-        );
-
-        // 更新文本：保留光標前的所有內容，添加補全，自動換行，然後添加光標後的內容
-        noteInput.value =
-          beforeCursor + currentAISuggestion + "\n" + afterCursor;
-
-        // 移動光標到新行的開始位置
-        const newPos = cursorPos + currentAISuggestion.length + 1; // +1 是為了換行符
-        noteInput.setSelectionRange(newPos, newPos);
-
-        // 清除建議
-        clearAISuggestion();
-
-        // 更新字數
-        updateCharCount();
-
-        // 觸發 input 事件，確保其他功能正常運行
-        const inputEvent = new Event("input", { bubbles: true });
-        noteInput.dispatchEvent(inputEvent);
-      }
       // 格式化日期 YYYY-MM-DD
       function formatDate(date) {
         const year = date.getFullYear();
@@ -779,32 +682,24 @@
         const day = String(date.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
       }
+
       // 格式化單字建議，增強詞性和釋義的顯示
       function formatWordSuggestion(suggestion) {
-        // 找出所有的詞性標記 [n.], [v.], [adj.] 等
         const parts = suggestion.split(/(\[\w+\.\])/g);
         if (parts.length > 1) {
           let formattedOutput = "";
-
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             if (part.match(/^\[\w+\.\]$/)) {
-              // 這是詞性標記
               formattedOutput += '<span class="word-type">' + part + "</span>";
             } else if (i > 0 && parts[i - 1].match(/^\[\w+\.\]$/)) {
-              // 這是跟在詞性後面的釋義
-              const meanings = part.split(/[;；]/); // 分號分隔不同詞性的解釋
-
+              const meanings = part.split(/[;；]/);
               if (meanings.length > 1) {
-                // 有多個詞性解釋
                 formattedOutput +=
                   '<span class="word-meaning">' + meanings[0] + "</span>";
-
                 for (let j = 1; j < meanings.length; j++) {
-                  // 後續的詞性和解釋
                   const nextPart = parts[i + j * 2 - 1] || "";
                   const nextMeaning = meanings[j] || "";
-
                   formattedOutput +=
                     ';<span class="word-type">' +
                     nextPart +
@@ -813,27 +708,94 @@
                     nextMeaning +
                     "</span>";
                 }
-
-                // 跳過已處理的詞性和解釋
                 i += (meanings.length - 1) * 2;
               } else {
-                // 單個詞性解釋
                 formattedOutput +=
                   '<span class="word-meaning">' + part + "</span>";
               }
             } else {
-              // 其他部分，例如單字本身
               formattedOutput += part;
             }
           }
-
           return formattedOutput;
         }
-
         return suggestion;
       }
-      // 初始化時獲取最新的筆記版本
-      fetchNotes();
+      document.getElementById("generateSubtitleBtn").onclick = function () {
+        const fileInput = document.getElementById("videoInput");
+        if (!fileInput.files[0]) {
+          document.getElementById("subtitleResult").innerText =
+            "請選擇影片檔案！";
+          document.getElementById("downloadSubtitleBtn").style.display = "none";
+          return;
+        }
+        const formData = new FormData();
+        formData.append("subtitle", fileInput.files[0]);
+        document.getElementById("subtitleResult").innerText =
+          "AI 正在辨識字幕，請稍候...";
+        document.getElementById("downloadSubtitleBtn").style.display = "none";
+        fetch("/generate-subtitle", {
+          method: "POST",
+          body: formData,
+        })
+          .then((res) => {
+            // 如果回應是檔案（Content-Type: text/plain 或 octet-stream），就下載
+            const disposition = res.headers.get("Content-Disposition");
+            if (disposition && disposition.includes("attachment")) {
+              return res.blob().then((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "subtitle_zh-TW.srt";
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }, 100);
+                document.getElementById("subtitleResult").innerText = "字幕已下載！";
+                document.getElementById("downloadSubtitleBtn").style.display = "none";
+                return;
+              });
+            } else {
+              // 否則嘗試解析 JSON（錯誤訊息）
+              return res.json().then((data) => {
+                document.getElementById("subtitleResult").innerText =
+                  data.error || "產生失敗";
+                document.getElementById("downloadSubtitleBtn").style.display = "none";
+              });
+            }
+          })
+          .catch((err) => {
+            document.getElementById("subtitleResult").innerText =
+              "發生錯誤：" + err;
+            document.getElementById("downloadSubtitleBtn").style.display = "none";
+          });
+      };
+
+      // 下載字幕功能
+      document.getElementById("downloadSubtitleBtn").onclick = function () {
+        const content = this.subtitleContent;
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "subtitle.srt";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
+      // ====== 浮動提示樣式 ======
+      const style = document.createElement("style");
+      style.textContent = `
+        #floating-hint { position: absolute; pointer-events: none; z-index: 1000; }
+        #floating-hint .word-type { color: #3498db; font-weight: 600; }
+        #floating-hint .word-meaning { color: #95a5a6; }
+      `;
+      document.head.appendChild(style);
     </script>
   </body>
 </html>
