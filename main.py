@@ -3,6 +3,8 @@ import os
 import urllib.parse
 import json
 import requests
+import tempfile
+import re
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 # 載入 .env 檔案
 from dotenv import load_dotenv 
@@ -11,6 +13,153 @@ load_dotenv()
 HOST = "graph.threads.net"
 
 app = Flask(__name__)
+
+
+def split_srt_content(srt_content, max_lines=40):
+    """
+    將 SRT 內容依區塊分段，每段不超過 max_lines 區塊
+    """
+    blocks = re.split(r'\n\s*\n', srt_content.strip())
+    chunks = []
+    current = []
+    for block in blocks:
+        current.append(block)
+        if len(current) >= max_lines:
+            chunks.append('\n\n'.join(current))
+            current = []
+    if current:
+        chunks.append('\n\n'.join(current))
+    return chunks
+
+@app.route("/generate-subtitle", methods=["POST"])
+def generate_subtitle():
+    """
+    上傳字幕檔（.srt/.vtt），轉為繁體中文後下載（自動分段避免中斷）
+    """
+    try:
+        if "subtitle" not in request.files:
+            return jsonify({"error": "請上傳字幕檔案"}), 400
+        subtitle_file = request.files["subtitle"]
+
+        # 將字幕暫存
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".srt") as tmp:
+            subtitle_path = tmp.name
+            subtitle_file.save(subtitle_path)
+
+        # 讀取字幕內容
+        with open(subtitle_path, "r", encoding="utf-8") as f:
+            subtitle_content = f.read()
+
+        # 分段處理
+        chunks = split_srt_content(subtitle_content, max_lines=40)
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "未設定 OPENAI_API_KEY"}), 401
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        translated_chunks = []
+        for idx, chunk in enumerate(chunks):
+            data = {
+                "model": "gpt-4o",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "你是一個字幕翻譯助手，請將收到的字幕內容翻譯成繁體中文，保留字幕格式（如 SRT/VTT 標號與時間碼），只翻譯字幕內容。"
+                    },
+                    {
+                        "role": "user",
+                        "content": chunk
+                    }
+                ],
+                "temperature": 0.3,
+                "max_tokens": 2048
+            }
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=600
+            )
+            if response.status_code == 200:
+                translated = response.json()["choices"][0]["message"]["content"]
+                translated_chunks.append(translated)
+            else:
+                os.remove(subtitle_path)
+                return jsonify({"error": f"第{idx+1}段翻譯失敗: {response.text}"}), 500
+
+        os.remove(subtitle_path)
+        translated_subtitle = "\n\n".join(translated_chunks)
+        # 回傳檔案下載
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".srt", mode="w", encoding="utf-8") as out_tmp:
+            out_tmp.write(translated_subtitle)
+            out_path = out_tmp.name
+        from flask import send_file
+        return send_file(out_path, as_attachment=True, download_name="subtitle_zh-TW.srt", mimetype="text/plain")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    """
+    上傳字幕檔（.srt/.vtt），轉為繁體中文後下載
+    """
+    try:
+        if "subtitle" not in request.files:
+            return jsonify({"error": "請上傳字幕檔案"}), 400
+        subtitle_file = request.files["subtitle"]
+
+        # 將字幕暫存
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".srt") as tmp:
+            subtitle_path = tmp.name
+            subtitle_file.save(subtitle_path)
+
+        # 讀取字幕內容
+        with open(subtitle_path, "r", encoding="utf-8") as f:
+            subtitle_content = f.read()
+
+        # 呼叫 OpenAI API 進行翻譯
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "未設定 OPENAI_API_KEY"}), 401
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        data = {
+            "model": "gpt-4o",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "你是一個字幕翻譯助手，請將收到的字幕內容翻譯成繁體中文，保留字幕格式（如 SRT/VTT 標號與時間碼），只翻譯字幕內容。"
+                },
+                {
+                    "role": "user",
+                    "content": subtitle_content
+                }
+            ],
+            "temperature": 0.3,
+            "max_tokens": 4096
+        }
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=600
+        )
+        os.remove(subtitle_path)
+        if response.status_code == 200:
+            translated_subtitle = response.json()["choices"][0]["message"]["content"]
+            # 回傳檔案下載
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".srt", mode="w", encoding="utf-8") as out_tmp:
+                out_tmp.write(translated_subtitle)
+                out_path = out_tmp.name
+            from flask import send_file
+            return send_file(out_path, as_attachment=True, download_name="subtitle_zh-TW.srt", mimetype="text/plain")
+        else:
+            return jsonify({"error": response.text}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/ai-complete", methods=["POST"])
 def ai_complete():
@@ -33,7 +182,122 @@ def ai_complete():
     except Exception as e:
         print(f"AI 補全錯誤: {e}")
         return jsonify({"error": str(e)}), 500
+@app.route("/generate-image", methods=["POST"])
+def generate_image():
+    """
+    使用 OpenAI DALL-E 3 生成圖像，並強化風格控制
+    """
+    try:
+        data = request.get_json()
+        base_prompt = data.get("prompt", "")
+        style = data.get("style", "")  # 接收風格參數
+        
+        if not base_prompt:
+            return jsonify({"error": "請提供圖像描述"}), 400
 
+        # 風格庫 - 包含預定義的風格和詳細描述
+        style_guides = {
+            "吉卜力": "宮崎駿吉卜力工作室風格，溫暖柔和的色調，細膩的自然場景，富有童話感但具有深度的人物設計",
+            "水墨畫": "傳統東方水墨畫風格，濃淡層次分明，水墨暈染效果，留白的藝術表現，意境深遠",
+            "浮世繪": "日本浮世繪風格，平面構圖，大膽的色彩對比，細膩的線條，如北齋、歌川廣重的作品",
+            "賽博龐克": "賽博龐克風格，未來都市霓虹燈光，高科技低生活的對比，強烈的色彩對比，陰暗潮濕的街道",
+            "蒸汽龐克": "蒸汽龐克風格，維多利亞時代的機械裝置，黃銅和銅色調，蒸汽動力機械，齒輪和管道",
+            "超現實主義": "超現實主義風格，如達利的作品，夢境般的場景，不合邏輯的元素組合，精細的寫實技法",
+            "立體主義": "立體主義風格，如畢卡索的作品，同時呈現多個視角，幾何形狀分解，平面而抽象",
+            "新藝術": "新藝術風格，曲線優美的裝飾線條，自然界的有機形態，精緻的細節和華麗的裝飾元素",
+            "低多邊形": "低多邊形3D渲染風格，幾何面構成，色彩分明，簡化的形態，現代數位藝術感",
+            "像素藝術": "復古像素藝術風格，明確可見的像素點，有限調色板，精確的直角邊緣，8位或16位遊戲美學",
+            "科幻插畫": "科幻插畫風格，未來星系和行星場景，高科技宇宙飛船，壯觀的太空景觀，細節豐富的技術表現",
+            "哥特": "哥特風格，黑暗神秘氛圍，尖塔和拱門，華麗複雜的裝飾，強烈光影對比，中世紀建築元素",
+            "赤道摩洛哥風": "明亮熱情的摩洛哥風格，複雜的幾何圖案，鮮豔的色彩對比，精緻的馬賽克紋理，異國情調的建築元素"
+        }
+        
+        # 構建增強的提示詞
+        enhanced_prompt = base_prompt
+        
+        # 處理風格
+        if style:
+            # 檢查是否為預定義風格
+            style_guide = style_guides.get(style)
+            
+            if style_guide:
+                # 使用預定義風格描述
+                enhanced_prompt = f"以下圖像必須完全遵循{style}風格：{style_guide}。圖像內容是：{base_prompt}"
+            else:
+                # 使用用戶自定義風格
+                enhanced_prompt = f"以下圖像必須完全遵循{style}風格，強烈體現該風格的所有特徵和視覺元素。圖像內容是：{base_prompt}"
+        
+        # 添加通用品質提升詞
+        enhanced_prompt += "。圖像品質要求：高度細節，完美構圖，藝術品質，專業攝影技術，極致精細的紋理細節"
+            
+        print(f"使用增強提示詞: {enhanced_prompt}")
+            
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "未設定 OPENAI_API_KEY"}), 401
+
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+        payload = {
+            "model": "dall-e-3",
+            "prompt": enhanced_prompt,
+            "n": 1,
+            "size": "1024x1024",
+            "quality": "hd"  # 使用高品質設置
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/images/generations",
+            headers=headers,
+            json=payload
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            image_url = result["data"][0]["url"]
+            return jsonify({
+                "image_url": image_url,
+                "prompt_used": enhanced_prompt  # 返回實際使用的提示詞
+            })
+        else:
+            return jsonify({"error": response.text}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    """
+    使用 OpenAI gpt-image-1 (DALL·E 3) 生成圖像
+    """
+    try:
+        data = request.get_json()
+        prompt = data.get("prompt", "")
+        if not prompt:
+            return jsonify({"error": "請提供圖像描述"}), 400
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "未設定 OPENAI_API_KEY"}), 401
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        payload = {
+            "model": "dall-e-3",
+            "prompt": prompt,
+            "n": 1,
+            "size": "1024x1024"
+        }
+        response = requests.post(
+            "https://api.openai.com/v1/images/generations",
+            headers=headers,
+            json=payload
+        )
+        if response.status_code == 200:
+            image_url = response.json()["data"][0]["url"]
+            return jsonify({"image_url": image_url})
+        else:
+            return jsonify({"error": response.text}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 def get_ai_completion(text):
     """
     調用 OpenAI API 獲取文本補全
@@ -326,7 +590,13 @@ def split_note(note, max_length=500):
     將筆記拆分為多段，每段不超過 max_length 字元，並在每段前加上第一行作為日期標籤
     """
     lines = note.split("\n")
-    first_line = lines[0]+"\n"+lines[1]  # 取得第一行作為日期標籤
+    if len(lines) == 0:
+        return []  # 如果筆記為空，直接返回空列表
+    elif len(lines) == 1:
+        first_line = lines[0]  # 如果只有一行，直接取第一行
+    else:
+        first_line = lines[0] + "\n" + lines[1]  # 取前兩行作為日期標籤
+
     chunks = []
     current_chunk = ""
 
