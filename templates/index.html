@@ -274,77 +274,26 @@
 
       function showAISuggestion(originalText, completion) {
         const noteInput = document.getElementById("noteInput");
-        const textarea = noteInput;
-        const text = textarea.value;
-        const cursorPos = textarea.selectionEnd;
+        const cursorPos = noteInput.selectionEnd;
+
         if (!completion) {
           clearAISuggestion();
           return;
         }
+
         currentAISuggestion = completion;
         suggestionVisible = true;
-        const beforeCursor = text.substring(0, cursorPos);
-        const lines = beforeCursor.split("\n");
-        const currentLine = lines[lines.length - 1];
-        const allLines = text.split("\n");
-        const currentLineIndex = lines.length - 1;
-        const fullCurrentLine = allLines[currentLineIndex] || "";
-        const afterCursor = fullCurrentLine.substring(currentLine.length);
-        let hintElem = document.getElementById("floating-hint");
-        if (!hintElem) {
-          hintElem = document.createElement("div");
-          hintElem.id = "floating-hint";
-          hintElem.style.position = "absolute";
-          hintElem.style.zIndex = "1000";
-          hintElem.style.pointerEvents = "none";
-          hintElem.style.backgroundColor = "transparent";
-          hintElem.style.fontFamily = getComputedStyle(textarea).fontFamily;
-          hintElem.style.fontSize = getComputedStyle(textarea).fontSize;
-          hintElem.style.whiteSpace = "pre";
-          document.body.appendChild(hintElem);
-        }
-        const rect = textarea.getBoundingClientRect();
-        const temp = document.createElement("div");
-        temp.style.position = "absolute";
-        temp.style.visibility = "hidden";
-        temp.style.whiteSpace = "pre-wrap";
-        temp.style.wordWrap = "break-word";
-        temp.style.overflow = "hidden";
-        temp.style.width = textarea.clientWidth - 30 + "px";
-        temp.style.height = "auto";
-        temp.style.fontFamily = getComputedStyle(textarea).fontFamily;
-        temp.style.fontSize = getComputedStyle(textarea).fontSize;
-        temp.style.lineHeight = getComputedStyle(textarea).lineHeight;
-        temp.textContent = currentLine;
-        document.body.appendChild(temp);
-        const textWidth = getTextWidth(currentLine, textarea);
-        document.body.removeChild(temp);
-        const paddingLeft = parseInt(getComputedStyle(textarea).paddingLeft);
-        const paddingTop = parseInt(getComputedStyle(textarea).paddingTop);
-        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
-        hintElem.style.left =
-          rect.left + textWidth + paddingLeft + window.scrollX + "px";
-        hintElem.style.top =
-          rect.top +
-          (lines.length - 1) * lineHeight +
-          paddingTop +
-          window.scrollY +
-          "px";
-        hintElem.innerHTML =
-          formatWordSuggestion(completion) +
-          (afterCursor
-            ? `<span style="color: #000000;">${afterCursor}</span>`
-            : "");
-        hintElem.style.color = "#aaaaaa";
-      }
 
-      function clearAISuggestion() {
-        const hintElem = document.getElementById("floating-hint");
-        if (hintElem) hintElem.innerHTML = "";
-        currentAISuggestion = "";
-        suggestionVisible = false;
-      }
+        // 在輸入框中顯示補全字
+        const beforeCursor = noteInput.value.substring(0, cursorPos);
+        const afterCursor = noteInput.value.substring(cursorPos);
+        const fullText = beforeCursor + completion + afterCursor;
 
+        // 設定輸入框的值，並選中補全部分
+        noteInput.value = fullText;
+        noteInput.setSelectionRange(cursorPos, cursorPos + completion.length);
+      }
+      // 監聽鍵盤事件
       document
         .getElementById("noteInput")
         .addEventListener("keydown", function (e) {
@@ -360,23 +309,68 @@
           } else if (e.key === "Escape" && suggestionVisible) {
             e.preventDefault();
             clearAISuggestion();
+          } else {
+            clearAISuggestion(); // 清除補全字，因為使用者繼續輸入
+          }
+        });
+      function clearAISuggestion() {
+        const noteInput = document.getElementById("noteInput");
+        if (suggestionVisible && currentAISuggestion) {
+          const cursorPos = noteInput.selectionStart;
+          const beforeCursor = noteInput.value.substring(0, cursorPos);
+          const afterCursor = noteInput.value.substring(
+            cursorPos + currentAISuggestion.length
+          );
+          noteInput.value = beforeCursor + afterCursor;
+          noteInput.setSelectionRange(cursorPos, cursorPos);
+        }
+        currentAISuggestion = "";
+        suggestionVisible = false;
+      }
+
+      document
+        .getElementById("noteInput")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Tab" && suggestionVisible) {
+            e.preventDefault(); // 阻止 Tab 鍵的預設行為
+            acceptAISuggestion();
+          } else if (e.key === "ArrowRight" && suggestionVisible) {
+            const cursorPos = this.selectionStart;
+            if (cursorPos === this.value.length) {
+              e.preventDefault();
+              acceptAISuggestion();
+            }
+          } else if (e.key === "Escape" && suggestionVisible) {
+            e.preventDefault();
+            clearAISuggestion();
+          } else {
+            clearAISuggestion(); // 清除補全字，因為使用者繼續輸入
           }
         });
 
       function acceptAISuggestion() {
         if (!suggestionVisible || !currentAISuggestion) return;
+
         const noteInput = document.getElementById("noteInput");
         const cursorPos = noteInput.selectionEnd;
-        const text = noteInput.value;
-        const beforeCursor = text.substring(0, cursorPos);
-        const afterCursor = text.substring(cursorPos);
-        noteInput.value =
-          beforeCursor + currentAISuggestion + "\n" + afterCursor;
-        const newPos = cursorPos + currentAISuggestion.length + 1;
-        noteInput.setSelectionRange(newPos, newPos);
-        clearAISuggestion();
-        updateCharCount();
-        noteInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+        // 分割輸入框內容
+        const beforeCursor = noteInput.value.substring(0, cursorPos);
+        const afterCursor = noteInput.value.substring(cursorPos);
+
+        // 插入補全字
+        const newText = beforeCursor  + afterCursor;
+
+        // 更新輸入框內容
+        noteInput.value = newText;
+
+        // 移動光標到補全字後
+        const newCursorPos = cursorPos + currentAISuggestion.length;
+        noteInput.setSelectionRange(newCursorPos, newCursorPos);
+
+        // 清除補全狀態
+        currentAISuggestion = "";
+        suggestionVisible = false;
       }
 
       // ====== 筆記自動保存與發佈 ======
@@ -753,8 +747,10 @@
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }, 100);
-                document.getElementById("subtitleResult").innerText = "字幕已下載！";
-                document.getElementById("downloadSubtitleBtn").style.display = "none";
+                document.getElementById("subtitleResult").innerText =
+                  "字幕已下載！";
+                document.getElementById("downloadSubtitleBtn").style.display =
+                  "none";
                 return;
               });
             } else {
@@ -762,14 +758,16 @@
               return res.json().then((data) => {
                 document.getElementById("subtitleResult").innerText =
                   data.error || "產生失敗";
-                document.getElementById("downloadSubtitleBtn").style.display = "none";
+                document.getElementById("downloadSubtitleBtn").style.display =
+                  "none";
               });
             }
           })
           .catch((err) => {
             document.getElementById("subtitleResult").innerText =
               "發生錯誤：" + err;
-            document.getElementById("downloadSubtitleBtn").style.display = "none";
+            document.getElementById("downloadSubtitleBtn").style.display =
+              "none";
           });
       };
 

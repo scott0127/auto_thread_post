@@ -548,6 +548,7 @@ button:hover {
     z-index: 2;
     caret-color: #000;
     color: #333;  /* 確保文字顏色清晰 */
+    resize: none;
 }
 .ai-toggle-group {
     margin: 10px 0 0 0;
