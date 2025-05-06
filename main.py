@@ -596,7 +596,7 @@ def split_note(note, max_length=500):
         first_line = lines[0]  # 如果只有一行，直接取第一行
     else:
         first_line = lines[0] + "\n" + lines[1]  # 取前兩行作為日期標籤
-
+    #xd
     chunks = []
     current_chunk = ""
 
