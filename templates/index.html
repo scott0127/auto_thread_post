@@ -189,7 +189,6 @@
         fetchNotes();
         updateCharCount();
       });
-
       // ====== AI 補全開關 ======
       document
         .getElementById("aiCompletionToggle")
@@ -271,82 +270,144 @@
           hintElem.style.color = "#aaaaaa";
         }
       }
-
+      
       function showAISuggestion(originalText, completion) {
         const noteInput = document.getElementById("noteInput");
         const cursorPos = noteInput.selectionEnd;
-
+      
         if (!completion) {
           clearAISuggestion();
           return;
         }
-
+      
+        // 儲存補全狀態，但不直接插入補全字
         currentAISuggestion = completion;
         suggestionVisible = true;
-
-        // 在輸入框中顯示補全字
+      
+        // 獲取輸入框中光標前後的文字
         const beforeCursor = noteInput.value.substring(0, cursorPos);
         const afterCursor = noteInput.value.substring(cursorPos);
-        const fullText = beforeCursor + completion + afterCursor;
-
-        // 設定輸入框的值，並選中補全部分
-        noteInput.value = fullText;
-        noteInput.setSelectionRange(cursorPos, cursorPos + completion.length);
+        
+        // 找出當前行的開始位置 (最後一個換行符之後)
+        const lastNewlinePos = beforeCursor.lastIndexOf('\n');
+        const currentLineStart = lastNewlinePos >= 0 ? lastNewlinePos + 1 : 0;
+        
+        // 獲取當前行文字
+        const currentLineText = beforeCursor.substring(currentLineStart);
+        
+        // 建立一個背景透明的疊加層，並限制在輸入框內
+        const ghostElem = document.createElement("div");
+        ghostElem.id = "ghost-completion";
+        ghostElem.style.position = "absolute";
+        ghostElem.style.pointerEvents = "none";
+        ghostElem.style.background = "transparent";
+        ghostElem.style.fontFamily = getComputedStyle(noteInput).fontFamily;
+        ghostElem.style.fontSize = getComputedStyle(noteInput).fontSize;
+        ghostElem.style.padding = getComputedStyle(noteInput).padding;
+        ghostElem.style.whiteSpace = "pre-wrap";
+        ghostElem.style.overflow = "hidden"; // 修改為 hidden，避免出現滾動條
+        ghostElem.style.zIndex = "10";
+        ghostElem.style.width = noteInput.offsetWidth + "px";
+        ghostElem.style.height = noteInput.offsetHeight + "px";
+        ghostElem.style.boxSizing = "border-box"; // 確保尺寸計算包含內邊距
+        ghostElem.style.color = "transparent"; // 整個元素內容透明
+        ghostElem.style.clipPath = "inset(0)"; // 確保內容不會超出邊界
+        
+        const rect = noteInput.getBoundingClientRect();
+        ghostElem.style.left = rect.left + window.scrollX + "px";
+        ghostElem.style.top = rect.top + window.scrollY + "px";
+        
+        // 計算光標位置
+        const textBeforeCursor = noteInput.value.substring(0, cursorPos);
+        const linesBeforeCursor = textBeforeCursor.split("\n");
+        const cursorLine = linesBeforeCursor.length - 1;
+        
+        // 創建與原始文本相同的內容結構但全部透明
+        const lines = noteInput.value.split("\n");
+        
+        // 生成 HTML 內容
+        let html = '';
+        for (let i = 0; i < lines.length; i++) {
+          if (i === cursorLine) {
+            // 當前行：顯示光標位置前的文本 + 灰色補全文本 + 光標位置後的文本
+            const lineBeforeCursor = lines[i].substring(0, linesBeforeCursor[cursorLine].length);
+            const lineAfterCursor = lines[i].substring(linesBeforeCursor[cursorLine].length);
+            
+            html += '<div>' + escapeHtml(lineBeforeCursor) + 
+                   '<span style="color: #aaaaaa;">' + escapeHtml(completion) + '</span>' + 
+                   escapeHtml(lineAfterCursor) + '</div>';
+          } else {
+            // 其他行：完全透明
+            html += '<div>' + escapeHtml(lines[i]) + '</div>';
+          }
+        }
+        
+        ghostElem.innerHTML = html;
+        
+        // 移除舊的幽靈元素
+        const oldGhost = document.getElementById("ghost-completion");
+        if (oldGhost) {
+          oldGhost.remove();
+        }
+        
+        document.body.appendChild(ghostElem);
+        
+        // 將輸入框的滾動位置同步到幽靈元素
+        ghostElem.scrollTop = noteInput.scrollTop;
+        
+        // 在輸入框底部時，確保滾動到能看到補全內容的位置
+        const isAtBottom = (noteInput.scrollHeight - noteInput.scrollTop - noteInput.clientHeight) < 10;
+        
+        // 如果光標在底部，則確保滾動到最新內容
+        if (isAtBottom || cursorLine === lines.length - 1) {
+          // 延遲執行，確保元素已經渲染完成
+          setTimeout(() => {
+            // 找到補全所在的行高度
+            const lineHeight = parseInt(getComputedStyle(noteInput).lineHeight) || 
+                              parseInt(getComputedStyle(noteInput).fontSize) * 1.2;
+            
+            // 計算需要滾動的位置，確保補全可見
+            const requiredScroll = (cursorLine + 1) * lineHeight - noteInput.clientHeight + 20;
+            
+            // 如果計算的滾動位置大於當前滾動位置，則滾動到該位置
+            if (requiredScroll > noteInput.scrollTop) {
+              noteInput.scrollTop = requiredScroll;
+              ghostElem.scrollTop = noteInput.scrollTop;
+            }
+          }, 0);
+        }
+        
+        // 重要：添加滾動監聽器，當輸入框滾動時同步幽靈元素
+        function syncScroll() {
+          const ghost = document.getElementById("ghost-completion");
+          if (ghost) {
+            ghost.scrollTop = noteInput.scrollTop;
+          }
+        }
+        
+        // 添加滾動事件監聽
+        noteInput.addEventListener('scroll', syncScroll);
+        
+        // 在 clearAISuggestion 中移除這個監聽器
+        ghostElem.scrollListener = syncScroll;
       }
       // 監聽鍵盤事件
-      document
-        .getElementById("noteInput")
-        .addEventListener("keydown", function (e) {
-          if (e.key === "Tab" && suggestionVisible) {
-            e.preventDefault();
-            acceptAISuggestion();
-          } else if (e.key === "ArrowRight" && suggestionVisible) {
-            const cursorPos = this.selectionStart;
-            if (cursorPos === this.value.length) {
-              e.preventDefault();
-              acceptAISuggestion();
-            }
-          } else if (e.key === "Escape" && suggestionVisible) {
-            e.preventDefault();
-            clearAISuggestion();
-          } else {
-            clearAISuggestion(); // 清除補全字，因為使用者繼續輸入
-          }
-        });
+
       function clearAISuggestion() {
-        const noteInput = document.getElementById("noteInput");
-        if (suggestionVisible && currentAISuggestion) {
-          const cursorPos = noteInput.selectionStart;
-          const beforeCursor = noteInput.value.substring(0, cursorPos);
-          const afterCursor = noteInput.value.substring(
-            cursorPos + currentAISuggestion.length
-          );
-          noteInput.value = beforeCursor + afterCursor;
-          noteInput.setSelectionRange(cursorPos, cursorPos);
+        // 移除灰色的補全字
+        const ghostElem = document.getElementById("ghost-completion");
+        if (ghostElem) {
+          // 移除滾動事件監聽器
+          if (ghostElem.scrollListener) {
+            document.getElementById("noteInput").removeEventListener('scroll', ghostElem.scrollListener);
+          }
+          ghostElem.remove();
         }
+      
+        // 清除補全狀態
         currentAISuggestion = "";
         suggestionVisible = false;
       }
-
-      document
-        .getElementById("noteInput")
-        .addEventListener("keydown", function (e) {
-          if (e.key === "Tab" && suggestionVisible) {
-            e.preventDefault(); // 阻止 Tab 鍵的預設行為
-            acceptAISuggestion();
-          } else if (e.key === "ArrowRight" && suggestionVisible) {
-            const cursorPos = this.selectionStart;
-            if (cursorPos === this.value.length) {
-              e.preventDefault();
-              acceptAISuggestion();
-            }
-          } else if (e.key === "Escape" && suggestionVisible) {
-            e.preventDefault();
-            clearAISuggestion();
-          } else {
-            clearAISuggestion(); // 清除補全字，因為使用者繼續輸入
-          }
-        });
 
       function acceptAISuggestion() {
         if (!suggestionVisible || !currentAISuggestion) return;
@@ -359,7 +420,7 @@
         const afterCursor = noteInput.value.substring(cursorPos);
 
         // 插入補全字
-        const newText = beforeCursor  + afterCursor;
+        const newText = beforeCursor + currentAISuggestion + afterCursor;
 
         // 更新輸入框內容
         noteInput.value = newText;
@@ -369,8 +430,7 @@
         noteInput.setSelectionRange(newCursorPos, newCursorPos);
 
         // 清除補全狀態
-        currentAISuggestion = "";
-        suggestionVisible = false;
+        clearAISuggestion();
       }
 
       // ====== 筆記自動保存與發佈 ======
@@ -385,6 +445,11 @@
 
       function saveNoteToServer(note) {
         if (!note.trim()) return;
+
+        // 暫時禁用補全功能
+        const previousState = aiCompletionEnabled;
+        aiCompletionEnabled = false;
+
         fetch("/", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -398,6 +463,10 @@
           .catch((error) => {
             showStatusMessage("保存筆記時發生錯誤", "error");
             console.error("Error:", error);
+          })
+          .finally(() => {
+            // 恢復補全功能
+            aiCompletionEnabled = previousState;
           });
       }
 
@@ -794,6 +863,51 @@
         #floating-hint .word-meaning { color: #95a5a6; }
       `;
       document.head.appendChild(style);
+
+      document
+        .getElementById("noteInput")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Tab" && suggestionVisible) {
+            e.preventDefault(); // 阻止 Tab 鍵的預設行為
+            acceptAISuggestion();
+          } else if (e.key !== "Tab" && suggestionVisible) {
+            // 如果按下的不是 Tab 鍵，且有顯示補全，則清除補全
+            clearAISuggestion();
+          }
+        });
+      // 滑鼠點擊取消補全
+      document
+        .getElementById("noteInput")
+        .addEventListener("click", function () {
+          if (suggestionVisible) {
+            clearAISuggestion();
+          }
+        });
+
+      // 輸入框失去焦點時取消補全
+      document
+        .getElementById("noteInput")
+        .addEventListener("blur", function () {
+          if (suggestionVisible) {
+            clearAISuggestion();
+          }
+        });
+
+      // 輸入時取消補全
+      document
+        .getElementById("noteInput")
+        .addEventListener("input", function () {
+          if (suggestionVisible) {
+            clearAISuggestion();
+          }
+
+          // 然後執行原有的輸入處理邏輯
+          const note = this.value;
+          updateCharCount();
+          if (aiCompletionEnabled) handleAICompletion(this);
+          clearTimeout(saveTimeout);
+          saveTimeout = setTimeout(() => saveNoteToServer(note), 800);
+        });
     </script>
   </body>
 </html>

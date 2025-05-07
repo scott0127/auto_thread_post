@@ -1,90 +1,81 @@
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-outerroute [n.] 路線，航線；[v.] 規劃路線，指引方向
-go [v.] 去，走；[n.] 行為，進行，進展
-like[v.] 喜歡，願意，類似；[prep.] 像，類似於；[adj.] 相似的，像的
-hi[phr.] 嗨，你好，嘿
-bound
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+bra[n.] 背心，胸罩，束胸器
+beautiful
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but not least [phr.] 最後但同樣重要，最後卻不容忽視，最後卻也重要
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-outer
-go [v.] 去，走；[n.] 行為，進行，進展
-like[v.] 喜歡，願意，類似；[prep.] 像，類似於；[adj.] 相似的，像的
-hi[phr.] 嗨，你好，嘿
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+bra[n.] 背心，胸罩，束胸器
+beauti
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but not least [phr.] 最後但同樣重要，最後卻不容忽視，最後卻也重要
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-go [v.] 去，走；[n.] 行為，進行，進展
-like[v.] 喜歡，願意，類似；[prep.] 像，類似於；[adj.] 相似的，像的
-hi[phr.] 嗨，你好，嘿
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+bra
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but not least [phr.] 最後但同樣重要，最後卻不容忽視，最後卻也重要
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-gooo
-like[v.] 喜歡，願意，類似；[prep.] 像，類似於；[adj.] 相似的，像的
-hi[phr.] 嗨，你好，嘿
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-good
-like
-hi[phr.] 嗨，你好，嘿
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but not least [phr.] 最後但同樣重要，最後卻不容忽視，最後卻也重要
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-good
-like
-hi
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but not least [phr.] 最後但同樣重要，最後卻不容忽視，最後卻也重要
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-good
-likee [v.] 喜歡，喜愛；[prep.] 如，同；[adj.] 類似的，似的e [v.] 喜歡，喜愛；[prep.] 如，同；[adj.] 類似的，似的
-hi
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but no leas
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-good
-like
-hi[phr.] 嗨，您好，嘿[phr.] 嗨，您好，嘿
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
+last but no lea
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-good
-lik
-hi[phr.] 嗨，您好，嘿[phr.] 嗨，您好，嘿
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro[n.] 利益，專業人士；[adj.] 贊成的，專業的；[adv.] 在前，向前
 
-hello[phr.] 嗨，您好，你好
-test[n.] 測試，考驗；[v.] 測試，試驗，檢驗
-produce [n.] 生產物，產品；[v.] 生產，產生，製造，創造
-important [adj.] 重要的，重大的，值得注意的
-out
-good
-like
-hi
+
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+hello[phr.] 你好，您好，打招呼
+run[n.] 跑步，奔跑；[v.] 跑，運行，經營，運作
+pro

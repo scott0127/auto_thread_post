@@ -541,7 +541,11 @@ button:hover {
     margin-right: 2px;
     background-color: transparent;
 }
-
+/* 添加到你的 style.css 或 <style> 標籤中 */
+#noteInput::selection {
+    background-color: #f0f0f0;
+    color: #aaaaaa;
+  }
 #noteInput {
     position: relative;
     background-color: white;  /* 改為白色背景 */
