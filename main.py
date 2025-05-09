@@ -521,7 +521,7 @@ def get_ai_answer(question):
         }
         
         data = {
-            "model": "gpt-4o",
+            "model": "gpt-4.1",
             "messages": [
                 {
                     "role": "system",
